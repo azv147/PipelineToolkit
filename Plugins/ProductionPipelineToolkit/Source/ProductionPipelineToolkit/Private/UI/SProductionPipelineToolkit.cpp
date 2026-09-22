@@ -4,6 +4,9 @@
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Text/STextBlock.h"
 
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "AssetRegistry/AssetData.h"
+
 void SProductionPipelineToolkit::Construct(
 	const FArguments& InArgs)
 {
@@ -55,11 +58,77 @@ void SProductionPipelineToolkit::Construct(
 
 FReply SProductionPipelineToolkit::OnScanClicked()
 {
-	SetStatus(
-		FText::FromString(
-			TEXT("Status: Scan Requested")
-		)
-	);
+	// SetStatus(
+	// 	FText::FromString(
+	// 		TEXT("Status: Scan Requested")
+	// 	)
+	// );
+
+	FAssetRegistryModule& AssetRegistryModule =
+	FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+
+    IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+    AssetRegistry.WaitForCompletion();
+
+    TArray<FAssetData> AssetDataList;
+
+    const bool bSuccess = AssetRegistry.GetAssetsByPath(
+        FName(TEXT("/Game/ValidationTest")),
+        AssetDataList,
+        true,   // Recursive
+        true    // Include only on-disk assets
+    );
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("========== ProductionPipelineToolkit Scan ==========")
+    );
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("Scan Path: /Game/ValidationTest")
+    );
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("Found %d assets"),
+        AssetDataList.Num()
+    );
+
+    if (!bSuccess)
+    {
+        UE_LOG(
+            LogTemp,
+            Warning,
+            TEXT("Asset Registry query failed.")
+        );
+
+        return FReply::Handled();
+    }
+
+    for (const FAssetData& AssetData : AssetDataList)
+    {
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("Asset: Name=%s | Class=%s | PackagePath=%s | ObjectPath=%s"),
+            *AssetData.AssetName.ToString(),
+            *AssetData.AssetClassPath.ToString(),
+            *AssetData.PackagePath.ToString(),
+            *AssetData.GetObjectPathString()
+        );
+    }
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("====================================================")
+    );
+
 
 	return FReply::Handled();
 }

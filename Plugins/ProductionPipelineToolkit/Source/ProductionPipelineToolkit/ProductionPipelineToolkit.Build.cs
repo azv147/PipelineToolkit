@@ -25,7 +25,8 @@ public class ProductionPipelineToolkit : ModuleRules
 				"UnrealEd",
 				"LevelEditor",
 				"ToolMenus",
-				"WorkspaceMenuStructure"
+				"WorkspaceMenuStructure",
+				"AssetRegistry"
 			}
 		);
 	}
