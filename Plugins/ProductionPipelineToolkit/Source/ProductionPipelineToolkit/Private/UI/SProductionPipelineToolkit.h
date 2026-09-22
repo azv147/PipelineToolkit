@@ -2,6 +2,9 @@
 
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+
+#include "Validation/ValidationResult.h"
 
 class SProductionPipelineToolkit : public SCompoundWidget
 {
@@ -21,4 +24,7 @@ private:
 	void SetStatus(const FText& NewStatus);
 
 	TSharedPtr<class STextBlock> StatusText;
+
+	TSharedPtr<SVerticalBox> ResultsContainer;
+	TArray<FValidationResult> ValidationResults;
 };
