@@ -2,7 +2,8 @@
 
 #include "Engine/Blueprint.h"
 
-FValidationResult FBlueprintNamingRule::Evaluate(const FAssetData& AssetData)
+FValidationResult FBlueprintNamingRule::Evaluate(const FAssetData& AssetData,
+	                                             const FString& RequiredPrefix)
 {
     FValidationResult Result;
 
@@ -25,18 +26,38 @@ FValidationResult FBlueprintNamingRule::Evaluate(const FAssetData& AssetData)
         return Result;
     }
 
-    if (AssetData.AssetName.ToString().StartsWith(TEXT("BP_")))
+
+    // if (AssetData.AssetName.ToString().StartsWith(TEXT("BP_")))
+    // {
+    //     Result.Status = EValidationStatus::Passed;
+    //     Result.Message =
+    //         TEXT("Blueprint name follows the BP_ naming convention.");
+
+    //     return Result;
+    // }
+    // Result.Status = EValidationStatus::Failed;
+    // Result.Message =
+    //     TEXT("Blueprint asset name must start with BP_.");
+    const FString AssetName = AssetData.AssetName.ToString();
+
+    if (AssetName.StartsWith(RequiredPrefix))
     {
         Result.Status = EValidationStatus::Passed;
-        Result.Message =
-            TEXT("Blueprint name follows the BP_ naming convention.");
 
-        return Result;
+        Result.Message = FString::Printf(
+            TEXT("Blueprint name follows the %s naming convention."),
+            *RequiredPrefix
+        );
     }
+    else
+    {
+        Result.Status = EValidationStatus::Failed;
 
-    Result.Status = EValidationStatus::Failed;
-    Result.Message =
-        TEXT("Blueprint asset name must start with BP_.");
+        Result.Message = FString::Printf(
+            TEXT("Blueprint asset name must start with %s."),
+            *RequiredPrefix
+        );
+    }
 
     return Result;
 }

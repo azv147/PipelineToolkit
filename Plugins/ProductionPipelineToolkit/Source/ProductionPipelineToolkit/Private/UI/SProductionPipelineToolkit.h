@@ -5,6 +5,11 @@
 #include "Widgets/SBoxPanel.h"
 
 #include "Validation/ValidationResult.h"
+#include "Validation/ValidationRun.h"
+
+class STextBlock;
+class SVerticalBox;
+class SEditableTextBox;
 
 class SProductionPipelineToolkit : public SCompoundWidget
 {
@@ -23,8 +28,17 @@ private:
 
 	void SetStatus(const FText& NewStatus);
 
-	TSharedPtr<class STextBlock> StatusText;
+	void ClearValidationPresentation();
 
+private:
+
+	TSharedPtr<STextBlock> StatusText;
+	TSharedPtr<STextBlock> SummaryText;
+
+	TSharedPtr<SEditableTextBox> ScanScopeTextBox;
+	TSharedPtr<SEditableTextBox> BlueprintPrefixTextBox;
 	TSharedPtr<SVerticalBox> ResultsContainer;
-	TArray<FValidationResult> ValidationResults;
+
+	// TArray<FValidationResult> ValidationResults;
+	FValidationRun ValidationRun;
 };

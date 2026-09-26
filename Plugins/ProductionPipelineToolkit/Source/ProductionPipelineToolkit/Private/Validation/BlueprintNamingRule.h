@@ -7,5 +7,9 @@
 class FBlueprintNamingRule
 {
 public:
-    static FValidationResult Evaluate(const FAssetData& AssetData);
+	static FValidationResult Evaluate(
+		const FAssetData& AssetData,
+		const FString& RequiredPrefix
+	);
+    //static FValidationResult Evaluate(const FAssetData& AssetData);
 };
