@@ -30,6 +30,8 @@ private:
 
 	void ClearValidationPresentation();
 
+	FReply OnAutoFixClicked(FValidationResult Result);
+
 private:
 
 	TSharedPtr<STextBlock> StatusText;

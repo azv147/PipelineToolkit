@@ -26,7 +26,8 @@ public class ProductionPipelineToolkit : ModuleRules
 				"LevelEditor",
 				"ToolMenus",
 				"WorkspaceMenuStructure",
-				"AssetRegistry"
+				"AssetRegistry",
+				"AssetTools"
 			}
 		);
 	}

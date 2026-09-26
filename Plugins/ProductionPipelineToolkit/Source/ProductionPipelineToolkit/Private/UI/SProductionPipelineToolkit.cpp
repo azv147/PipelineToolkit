@@ -7,6 +7,10 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/AssetData.h"
 #include "Engine/Blueprint.h"
+#include "Editor.h"
+#include "Subsystems/EditorAssetSubsystem.h"
+// #include "ScopedTransaction.h"
+#include "Misc/PackageName.h"
 
 #include "Validation/ValidationResult.h"
 #include "Validation/BlueprintNamingRule.h"
@@ -140,7 +144,6 @@ void SProductionPipelineToolkit::Construct(
 FReply SProductionPipelineToolkit::OnScanClicked()
 {
 	SetStatus(FText::FromString(TEXT("Status: Scanning...")));
-	// const FString ScanPath = TEXT("/Game/ValidationTest");
 	FString ScanPath = TEXT("/Game/ValidationTest");
 	if (ScanScopeTextBox.IsValid())
 	{
@@ -325,6 +328,7 @@ FReply SProductionPipelineToolkit::OnScanClicked()
 			*Result.AssetName.ToString(),
 			*Result.Message
 		);
+
 	}
 
 	// ------------------------------------------------------------
@@ -425,6 +429,24 @@ FReply SProductionPipelineToolkit::OnScanClicked()
 					.AutoWrapText(true)
 				]
 			];
+
+			if (Result.bCanAutoFix)
+			{
+				ResultsContainer->AddSlot()
+				.AutoHeight()
+				.Padding(4.0f, 0.0f, 4.0f, 6.0f)
+				[
+					SNew(SButton)
+					.Text(FText::FromString(TEXT("Fix")))
+					.OnClicked(
+						FOnClicked::CreateSP(
+							this,
+							&SProductionPipelineToolkit::OnAutoFixClicked,
+							Result
+						)
+					)
+				];
+			}
 		}
 	}
 
@@ -507,4 +529,145 @@ void SProductionPipelineToolkit::ClearValidationPresentation()
 			)
 		);
 	}
+}
+
+FReply SProductionPipelineToolkit::OnAutoFixClicked(
+    FValidationResult Result
+)
+{
+    if (!Result.bCanAutoFix)
+    {
+        return FReply::Handled();
+    }
+
+    if (Result.Status != EValidationStatus::Failed)
+    {
+        return FReply::Handled();
+    }
+
+    if (Result.SuggestedAssetName.IsNone())
+    {
+        return FReply::Handled();
+    }
+
+    const FString SourceAssetPath =
+        Result.AssetObjectPath.ToString();
+
+    // const FString PackagePath =
+    //     Result.AssetObjectPath.GetLongPackageName();
+
+	const FString PackageName =
+    	Result.AssetObjectPath.GetLongPackageName();
+
+	const FString PackagePath =
+		FPackageName::GetLongPackagePath(PackageName);
+
+    if (SourceAssetPath.IsEmpty() || PackagePath.IsEmpty())
+    {
+        SetStatus(
+            FText::FromString(TEXT("Status: Invalid Asset Path"))
+        );
+
+        return FReply::Handled();
+    }
+
+    const FString NewAssetName =
+        Result.SuggestedAssetName.ToString();
+
+	const FString DestinationPackageName =
+		FString::Printf(
+			TEXT("%s/%s"),
+			*PackagePath,
+			*NewAssetName
+		);
+
+
+    const FString DestinationAssetPath =
+        FString::Printf(
+            TEXT("%s.%s"),
+            *DestinationPackageName,
+            *NewAssetName
+        );
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT("Auto-Fix requested: %s -> %s"),
+		*SourceAssetPath,
+		*DestinationAssetPath
+	);
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("Auto-Fix requested: %s -> %s"),
+        *SourceAssetPath,
+        *DestinationAssetPath
+    );
+
+    // FScopedTransaction Transaction(
+    //     FText::FromString(
+    //         TEXT("Fix Blueprint Asset Naming")
+    //     )
+    // );
+
+    if (GEditor == nullptr)
+    {
+        SetStatus(
+            FText::FromString(TEXT("Status: Editor Unavailable"))
+        );
+
+        return FReply::Handled();
+    }
+
+    UEditorAssetSubsystem* AssetSubsystem =
+        GEditor->GetEditorSubsystem<UEditorAssetSubsystem>();
+
+    if (AssetSubsystem == nullptr)
+    {
+        SetStatus(
+            FText::FromString(TEXT("Status: Asset Subsystem Unavailable"))
+        );
+
+        return FReply::Handled();
+    }
+
+    const bool bSuccess =
+        AssetSubsystem->RenameAsset(
+            SourceAssetPath,
+            DestinationAssetPath
+        );
+
+    if (!bSuccess)
+    {
+        SetStatus(
+            FText::FromString(TEXT("Status: Auto-Fix Failed"))
+        );
+
+        UE_LOG(
+            LogTemp,
+            Warning,
+            TEXT("Auto-Fix failed: %s -> %s"),
+            *SourceAssetPath,
+            *DestinationAssetPath
+        );
+
+        return FReply::Handled();
+    }
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("Auto-Fix succeeded: %s -> %s"),
+        *SourceAssetPath,
+        *DestinationAssetPath
+    );
+
+    OnScanClicked();
+
+    SetStatus(
+        FText::FromString(TEXT("Status: Auto-Fix Complete"))
+    );
+
+    return FReply::Handled();
 }

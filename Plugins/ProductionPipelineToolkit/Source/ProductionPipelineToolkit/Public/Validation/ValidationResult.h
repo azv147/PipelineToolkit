@@ -21,4 +21,8 @@ struct FValidationResult
     EValidationStatus Status = EValidationStatus::Skipped;
 
     FString Message;
+
+    bool bCanAutoFix = false;
+
+    FName SuggestedAssetName;
 };

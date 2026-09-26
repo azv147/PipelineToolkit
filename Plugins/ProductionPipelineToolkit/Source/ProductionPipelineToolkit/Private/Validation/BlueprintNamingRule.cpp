@@ -49,6 +49,15 @@ FValidationResult FBlueprintNamingRule::Evaluate(const FAssetData& AssetData,
             *RequiredPrefix
         );
     }
+    // else
+    // {
+    //     Result.Status = EValidationStatus::Failed;
+
+    //     Result.Message = FString::Printf(
+    //         TEXT("Blueprint asset name must start with %s."),
+    //         *RequiredPrefix
+    //     );
+    // }
     else
     {
         Result.Status = EValidationStatus::Failed;
@@ -57,6 +66,12 @@ FValidationResult FBlueprintNamingRule::Evaluate(const FAssetData& AssetData,
             TEXT("Blueprint asset name must start with %s."),
             *RequiredPrefix
         );
+
+        const FString SuggestedName =
+            RequiredPrefix + AssetName;
+
+        Result.bCanAutoFix = true;
+        Result.SuggestedAssetName = FName(*SuggestedName);
     }
 
     return Result;
