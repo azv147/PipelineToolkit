@@ -35,6 +35,8 @@ private:
 
 	FReply OnRevertAutoFixClicked();
 
+	FReply OnExportJsonClicked();
+
 private:
 	TSharedPtr<SButton> RevertFixButton;
 	FSoftObjectPath LastAutoFixOriginalPath;

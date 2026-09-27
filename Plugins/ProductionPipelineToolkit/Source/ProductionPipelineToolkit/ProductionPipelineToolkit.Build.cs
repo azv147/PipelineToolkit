@@ -27,7 +27,8 @@ public class ProductionPipelineToolkit : ModuleRules
 				"ToolMenus",
 				"WorkspaceMenuStructure",
 				"AssetRegistry",
-				"AssetTools"
+				"AssetTools",
+        		"Json"
 			}
 		);
 	}

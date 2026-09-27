@@ -12,9 +12,11 @@
 // #include "ScopedTransaction.h"
 #include "Misc/PackageName.h"
 #include "UObject/ObjectRedirector.h"
+#include "Misc/Paths.h"
 
 #include "Validation/ValidationResult.h"
 #include "Validation/BlueprintNamingRule.h"
+#include "Validation/ValidationReportWriter.h"
 
 void SProductionPipelineToolkit::Construct(
 	const FArguments& InArgs)
@@ -100,6 +102,22 @@ void SProductionPipelineToolkit::Construct(
 			.OnClicked(
 				this,
 				&SProductionPipelineToolkit::OnScanClicked
+			)
+		]
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(10.0f, 0.0f, 10.0f, 10.0f)
+		[
+			SNew(SButton)
+			.Text(
+				FText::FromString(
+					TEXT("Export JSON")
+				)
+			)
+			.OnClicked(
+				this,
+				&SProductionPipelineToolkit::OnExportJsonClicked
 			)
 		]
 
@@ -799,6 +817,70 @@ FReply SProductionPipelineToolkit::OnRevertAutoFixClicked()
 
     SetStatus(
         FText::FromString(TEXT("Status: Auto-Fix Reverted"))
+    );
+
+    return FReply::Handled();
+}
+
+FReply SProductionPipelineToolkit::OnExportJsonClicked()
+{
+    if (ValidationRun.Scope.IsEmpty())
+    {
+        SetStatus(
+            FText::FromString(
+                TEXT("Status: No Validation Run")
+            )
+        );
+
+        return FReply::Handled();
+    }
+
+    const FString ReportDirectory =
+        FPaths::ProjectSavedDir() /
+        TEXT("ValidationReports");
+
+    const FString ReportPath =
+        ReportDirectory /
+        TEXT("ValidationReport.json");
+
+    FString ErrorMessage;
+
+    const bool bSuccess =
+        FValidationReportWriter::WriteJson(
+            ValidationRun,
+            ReportPath,
+            &ErrorMessage
+        );
+
+    if (!bSuccess)
+    {
+        SetStatus(
+            FText::FromString(
+                TEXT("Status: JSON Export Failed")
+            )
+        );
+
+        UE_LOG(
+            LogTemp,
+            Warning,
+            TEXT("JSON export failed: %s"),
+            *ErrorMessage
+        );
+
+        return FReply::Handled();
+    }
+
+    SetStatus(
+        FText::FromString(
+            TEXT("Status: JSON Export Complete")
+        )
+    );
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("Validation JSON exported: %s"),
+        *ReportPath
     );
 
     return FReply::Handled();
