@@ -10,6 +10,7 @@
 class STextBlock;
 class SVerticalBox;
 class SEditableTextBox;
+class SButton;
 
 class SProductionPipelineToolkit : public SCompoundWidget
 {
@@ -32,7 +33,12 @@ private:
 
 	FReply OnAutoFixClicked(FValidationResult Result);
 
+	FReply OnRevertAutoFixClicked();
+
 private:
+	TSharedPtr<SButton> RevertFixButton;
+	FSoftObjectPath LastAutoFixOriginalPath;
+	FSoftObjectPath LastAutoFixFixedPath;
 
 	TSharedPtr<STextBlock> StatusText;
 	TSharedPtr<STextBlock> SummaryText;

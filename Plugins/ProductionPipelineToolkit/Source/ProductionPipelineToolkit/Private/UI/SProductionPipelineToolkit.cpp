@@ -11,6 +11,7 @@
 #include "Subsystems/EditorAssetSubsystem.h"
 // #include "ScopedTransaction.h"
 #include "Misc/PackageName.h"
+#include "UObject/ObjectRedirector.h"
 
 #include "Validation/ValidationResult.h"
 #include "Validation/BlueprintNamingRule.h"
@@ -99,6 +100,19 @@ void SProductionPipelineToolkit::Construct(
 			.OnClicked(
 				this,
 				&SProductionPipelineToolkit::OnScanClicked
+			)
+		]
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(10.0f, 0.0f, 10.0f, 10.0f)
+		[
+			SAssignNew(RevertFixButton, SButton)
+			.Text(FText::FromString(TEXT("Revert Last Fix")))
+			.IsEnabled(false)
+			.OnClicked(
+				this,
+				&SProductionPipelineToolkit::OnRevertAutoFixClicked
 			)
 		]
 
@@ -289,6 +303,15 @@ FReply SProductionPipelineToolkit::OnScanClicked()
 
 	for (const FAssetData& AssetData : AssetDataList)
 	{
+		const bool bIsRedirector =
+			AssetData.AssetClassPath ==
+			UObjectRedirector::StaticClass()->GetClassPathName();
+
+		if (bIsRedirector)
+		{
+			continue;
+		}
+
 		// const FValidationResult Result =
 		// 	FBlueprintNamingRule::Evaluate(AssetData);
 		const FValidationResult Result =
@@ -653,7 +676,23 @@ FReply SProductionPipelineToolkit::OnAutoFixClicked(
         );
 
         return FReply::Handled();
-    }
+    } else
+	{
+		LastAutoFixOriginalPath =
+			FSoftObjectPath(SourceAssetPath);
+
+		LastAutoFixFixedPath =
+			FSoftObjectPath(DestinationAssetPath);
+
+		if (RevertFixButton.IsValid())
+		{
+			RevertFixButton->SetEnabled(true);
+		}
+		OnScanClicked();
+		SetStatus(
+			FText::FromString(TEXT("Status: Auto-Fix Complete"))
+		);
+	}
 
     UE_LOG(
         LogTemp,
@@ -667,6 +706,99 @@ FReply SProductionPipelineToolkit::OnAutoFixClicked(
 
     SetStatus(
         FText::FromString(TEXT("Status: Auto-Fix Complete"))
+    );
+
+    return FReply::Handled();
+}
+
+FReply SProductionPipelineToolkit::OnRevertAutoFixClicked()
+{
+    if (!LastAutoFixOriginalPath.IsValid() ||
+        !LastAutoFixFixedPath.IsValid())
+    {
+        return FReply::Handled();
+    }
+
+    if (GEditor == nullptr)
+    {
+        SetStatus(
+            FText::FromString(TEXT("Status: Editor Unavailable"))
+        );
+
+        return FReply::Handled();
+    }
+
+    UEditorAssetSubsystem* AssetSubsystem =
+        GEditor->GetEditorSubsystem<UEditorAssetSubsystem>();
+
+    if (AssetSubsystem == nullptr)
+    {
+        SetStatus(
+            FText::FromString(
+                TEXT("Status: Asset Subsystem Unavailable")
+            )
+        );
+
+        return FReply::Handled();
+    }
+
+    const FString FixedAssetPath =
+        LastAutoFixFixedPath.ToString();
+
+    const FString OriginalAssetPath =
+        LastAutoFixOriginalPath.ToString();
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("Auto-Fix revert requested: %s -> %s"),
+        *FixedAssetPath,
+        *OriginalAssetPath
+    );
+
+    const bool bSuccess =
+        AssetSubsystem->RenameAsset(
+            FixedAssetPath,
+            OriginalAssetPath
+        );
+
+    if (!bSuccess)
+    {
+        SetStatus(
+            FText::FromString(TEXT("Status: Revert Failed"))
+        );
+
+        UE_LOG(
+            LogTemp,
+            Warning,
+            TEXT("Auto-Fix revert failed: %s -> %s"),
+            *FixedAssetPath,
+            *OriginalAssetPath
+        );
+
+        return FReply::Handled();
+    }
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("Auto-Fix revert succeeded: %s -> %s"),
+        *FixedAssetPath,
+        *OriginalAssetPath
+    );
+
+    LastAutoFixOriginalPath.Reset();
+    LastAutoFixFixedPath.Reset();
+
+    if (RevertFixButton.IsValid())
+    {
+        RevertFixButton->SetEnabled(false);
+    }
+
+    OnScanClicked();
+
+    SetStatus(
+        FText::FromString(TEXT("Status: Auto-Fix Reverted"))
     );
 
     return FReply::Handled();
