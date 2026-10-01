@@ -1,8 +1,7 @@
 # UE Production Pipeline Toolkit — 会话日志 / Session Log
 
-> 中文部分为项目协作的主要版本，用于记录过程、纠错与补充。
-> English section is the GitHub-facing companion version.
-> 中文优先；英文完整追加于文档后半部分。
+> 中文用于项目协作，English 用于 GitHub 与交接；两部分记录相同事实。
+> Chinese supports project collaboration; English supports GitHub and handoff. Both sections record the same facts.
 
 ---
 
@@ -178,24 +177,6 @@ Asset Registry
 
 ---
 
-## 2026-09-20 — 按 AGENTS.md 核对连续性文件并恢复现场
-
-### 计划
-读取 Desktop `AGENTS.md` 作为项目基线，检查并更新 `PROJECT_STATE.md`、`ARCHITECTURE.md`、`SESSION_LOG.md`，在当前设计与进度上继续，不重新设计。
-
-### 实际
-- 以 Desktop `AGENTS.md` 为协作基线：V0 已完成，当前里程碑是 V1；先讨论 Asset / Level Actor，再写代码。
-- 本地验证 Git：分支 `main`，跟踪 `origin/main`，working tree clean，HEAD `0637f81`（`V0: Bootstrap UE Editor toolkit`），远程 `https://github.com/azv147/PipelineToolkit.git`。
-- 核对插件源码：Nomad Tab、Window 菜单、Slate Status/Scan 占位交互与 V0 描述一致；Scan 尚未接入 Asset Registry。
-- 纠正 `PROJECT_STATE.md` 中已过时或不准确的事实：分支已确认是 `main`；仓库中没有 `Resources/Icon128.png`；记录当前 `.uplugin` Module 类型与 `.uproject` 插件发现方式。
-- `ARCHITECTURE.md` 护栏未改，只追加“在已接受架构上继续”的决策记录。
-- 协作规范仍放在 Desktop `AGENTS.md`，不写入 `PROJECT_STATE.md`。
-
-### 结果
-连续性文件已与仓库真实状态对齐。下一工作仍是 V1 第一步的设计讨论，而不是写 Rule Engine。
-
----
-
 ## 当前交接检查表
 
 以后每次结束会话前：
@@ -203,6 +184,7 @@ Asset Registry
 - `PROJECT_STATE.md`：只有“当前真实状态”发生变化时才更新
 - `ARCHITECTURE.md`：只有设计决策 / 约束发生变化时才更新
 - `SESSION_LOG.md`：追加本次实际做了什么、为什么这样做、剩余什么
+- `AGENTS.md`：当前 Agent 工作边界或长期开发准则变化时更新
 
 每次新会话开始时，建议按这个顺序读取：
 
@@ -214,9 +196,560 @@ Asset Registry
 
 ---
 
-# English Version
+---
 
+
+## 2026-09-23 — V1 验证切片完成 / V2.0 交接
+
+### Context
+继续基于 V1 的真实 Asset Validation 数据流推进，不重新设计项目，也不提前引入大型 Rule Framework。
+
+### V1 实际完成
+从当前测试 Fixture 出发，完成并验证了完整闭环：
+
+```text
+Asset Registry
+→ FAssetData
+→ BlueprintNamingRule
+→ FValidationResult
+→ TArray<FValidationResult>
+→ Slate Editor Display
+```
+
+测试 Fixture：
+
+```text
+/Game/ValidationTest/BP_PlayerTest
+/Game/ValidationTest/Test_Player
+/Game/ValidationTest/M_Test
+/Game/ValidationTest/Characters/BP_EnemyTest
+```
+
+实测结果：
+
+```text
+BP_PlayerTest → PASS
+Test_Player   → FAIL
+M_Test        → SKIP
+BP_EnemyTest  → PASS
+```
+
+### 本阶段逐步完成的实现
+
+#### V1.0 Asset Discovery
+- 为测试准备 4 个可复现 `.uasset`。
+- 使用 Asset Registry 递归扫描 `/Game/ValidationTest`。
+- 成功获得 4 个 `FAssetData`。
+- 验证了 `AssetName`、`AssetClassPath`、`PackagePath`、`ObjectPath` 等基本元数据。
+- 使用 on-disk asset 查询，避免把未保存状态混入第一版 Discovery 验证。
+
+#### V1.1 First Rule
+实现 `BlueprintNamingRule`：
+
+```text
+Blueprint → 检查 BP_ 前缀
+非 Blueprint → SKIP
+```
+
+#### V1.2 Validation Result
+建立 `FValidationResult`，统一承载：
+
+- AssetName
+- AssetObjectPath
+- RuleId
+- Status (`Passed` / `Failed` / `Skipped`)
+- Message
+
+#### V1.3 Rule Extraction
+将 Blueprint 命名判断从 Scan 流程中抽出到：
+
+```text
+FBlueprintNamingRule::Evaluate(const FAssetData&)
+```
+
+Scan 负责发现与编排；Rule 负责验证；Result 负责承载结果。
+
+#### V1.4 Result Collection / Editor Display
+- `SProductionPipelineToolkit` 保存当前 `TArray<FValidationResult>`。
+- Slate 读取验证结果并展示。
+- Output Log 继续作为调试输出，UI 作为用户展示层。
+
+### 关键工程决策：非必要不抽象
+
+本阶段明确确认：当前不创建：
+
+- `IRule`
+- `RuleManager`
+- `RuleFactory`
+- 通用 Rule Registry
+
+原因不是“不要设计”，而是：
+
+> **非必要不抽象；先让真实用例证明重复结构，再支付抽象的设计、测试和维护成本。**
+
+当前只有一个真实 Rule，尚不存在足够重复结构来证明通用 Rule Framework 的价值。
+
+### V1 结束条件
+
+V1 的目标定义为：
+
+> 能发现真实项目 Asset，对 Asset 执行真实规则，生成结构化 Validation Result，并在 Editor 中展示。
+
+该目标现已完成。
+
+### V2.0 下一阶段
+
+项目正式进入：
+
+```text
+V2.0 — Validation Run
+```
+
+第一步不是 Config / SQLite / Commandlet，而是把当前：
+
+```text
+TArray<FValidationResult>
+```
+
+组织为一次完整的：
+
+```text
+Validation Run
+├─ Scope / Scan Path
+├─ Asset Count
+├─ Results
+├─ Passed Count
+├─ Failed Count
+└─ Skipped Count
+```
+
+后续再按真实需求演进到 Summary、Config、Safe Auto-Fix、JSON Report、Incremental / Dirty Asset Validation。
+
+### Git checkpoint
+
+V1 已达到适合建立 Git checkpoint 的状态。推荐提交信息：
+
+```text
+V1: Add asset validation flow
+```
+
+本次会话未把“建议提交”当成“已 push”的事实记录；实际远程状态应以本地 `git status` / `git log` / `git push` 验证结果为准。
+
+### Result
+V1 核心验证闭环完成，项目从“UE Editor Plugin Demo”进入“可展示的 Asset Validation Tool”阶段；下一工作窗口从 V2.0 `Validation Run` 开始。
+
+
+---
+
+## 2026-09-23 → 2026-09-27 — V2 Validation Workflow Completed
+
+### Context
+在 V1 已完成的真实 Asset Validation 数据流基础上，V2 的目标是把一次验证组织成一个可复用、可解释的 Editor Production Workflow，而不是继续扩张 Rule Framework。
+
+### V2.0 — Validation Run
+完成并验证：
+
+```text
+Asset Registry
+→ Rule Evaluation
+→ Validation Result
+→ Validation Run
+→ Editor Summary / Details
+```
+
+`FValidationRun` 负责承载：
+
+```text
+Scope
+Asset Count
+Results
+Passed Count
+Failed Count
+Skipped Count
+```
+
+### V2.1 / V2.2 — Summary / Rule Configuration
+完成并验证：
+
+- Scan Scope 可配置。
+- 空 Scope 会清空旧结果，避免 UI 显示过期 Validation Run。
+- Blueprint Naming Prefix 可配置。
+- 空 Prefix 会清空旧结果，并返回 `Invalid Rule Configuration`。
+- 默认 `Scope=/Game/ValidationTest`、`Prefix=BP_` 时，原始 Fixture 结果保持：
+
+```text
+BP_PlayerTest → PASS
+Test_Player   → FAIL
+M_Test        → SKIP
+BP_EnemyTest  → PASS
+```
+
+### V2.3 — Safe Auto-Fix
+实现并验证：
+
+```text
+FAIL
+  ↓
+Suggested Asset Name
+  ↓
+UEditorAssetSubsystem::RenameAsset()
+  ↓
+Re-validation
+```
+
+实际成功案例：
+
+```text
+Test_Player
+    ↓ Fix
+BP_Test_Player
+    ↓ Scan
+PASS
+```
+
+### Auto-Fix 调试与工程发现
+
+#### 1. Asset Path 语义
+最初目标路径错误地使用了 `GetLongPackageName()` 作为目录，导致：
+
+```text
+/Game/ValidationTest/Test_Player.BP_Test_Player
+```
+
+被构造出来。
+
+修正后区分：
+
+```text
+Package Path
+/Game/ValidationTest
+
+Package Name
+/Game/ValidationTest/Test_Player
+
+Object Path
+/Game/ValidationTest/Test_Player.Test_Player
+```
+
+由此得到正确目标：
+
+```text
+/Game/ValidationTest/BP_Test_Player.BP_Test_Player
+```
+
+#### 2. Redirector / File System 边界
+测试中发现，直接在 Windows 文件浏览器删除 / 操作 `.uasset` 后，Content Browser、Asset Registry 与磁盘状态可能暂时不一致。
+
+由此确认：
+
+> Asset 操作应通过 Unreal Editor / Content Browser / UE Asset API 完成，不应把 `.uasset` 当作普通文件直接管理。
+
+Rename 后还可能存在 Redirector，因此 Validation 不应把 Redirector 当作普通游戏内容来理解。
+
+#### 3. Ctrl+Z / Transaction
+最初尝试在高层 `RenameAsset()` 外包 `FScopedTransaction`，曾导致 UE 闪退。
+
+去掉额外 transaction 后，Crash 消失，但 `Ctrl+Z` 仍无法按预期撤销 Rename。
+
+因此当前结论是：
+
+```text
+RenameAsset()
+≠
+可直接假设为普通 UObject Ctrl+Z Transaction
+```
+
+当前 V2 不再继续堆 Transaction / Undo 复杂度；如未来真正需要可逆 Fix，再设计显式 Revert。
+
+### V2.4 — JSON Report
+完成并验证：
+
+```text
+ValidationRun
+      ↓
+ValidationReportWriter
+      ↓
+JSON
+      ↓
+Saved/ValidationReports/ValidationReport.json
+```
+
+JSON 已验证真实落盘，并包含：
+
+```text
+schema_version
+tool
+scope
+asset_count
+passed
+failed
+skipped
+results[]
+```
+
+每个 result 至少包含：
+
+```text
+asset
+object_path
+rule
+status
+message
+```
+
+存在 Auto-Fix 信息时还输出：
+
+```text
+can_auto_fix
+suggested_asset_name
+```
+
+### V2 完成标准
+
+V2 实际形成：
+
+```text
+Asset Registry
+      ↓
+Rule Evaluation
+      ↓
+Validation Result
+      ↓
+Validation Run
+      ├── Editor Summary / Details
+      ├── Rule Configuration
+      ├── Safe Auto-Fix
+      └── JSON Report
+```
+
+因此 V2 正式收口。
+
+没有继续加入：
+
+- 第二套 Rule Framework
+- SQLite
+- Dashboard / Chart
+- Commandlet
+- Python
+- CI
+- Blender
+- AI
+
+### 下一阶段：V3.0
+下一工作窗口正式从：
+
+```text
+Editor Validation Workflow
+```
+
+转向：
+
+```text
+Editor Commandlet
+    ↓
+Validation Core
+    ↓
+JSON + Exit Code
+```
+
+目标是证明 Editor UI 与 Commandlet 调用同一套 Validation Core，而不是复制业务逻辑。
+
+### Git checkpoint
+V2 的 JSON Report 已实际运行验证，但本阶段没有重新执行并确认最新：
+
+```bash
+git status
+git log
+git push
+```
+
+因此本日志不把 V2 完成写成“已经提交 / 已经 push”。
+
+可考虑建立独立 V2 checkpoint，例如：
+
+```text
+feat(validation): complete validation workflow and JSON reporting
+```
+
+## 2026-09-20 — Project Snapshot Reconciled / V1 Handoff Confirmed
+
+### 实际
+- 按最新项目综合快照重新核对 `PROJECT_STATE.md`、`ARCHITECTURE.md`、`SESSION_LOG.md`。
+- 保持既有架构不变，不重新设计项目。
+- 确认 V0 已完成，V1 为当前里程碑。
+- 确认当前真实数据流目标：`Asset Registry → Rule → Evaluate → Validation Result → Editor 展示`。
+- 确认下一步首先讨论 UE 中 `Content Browser Asset` 与 `Level Actor` 的概念边界。
+- 确认 SQLite、Commandlet、Python、CI、Blender、AI 均继续延期，直到 V1 验证数据流真正运行并可展示。
+
+### 结果
+三份连续性文件已统一采用最新项目快照作为工作基线。下一会话可以直接进入 V1 设计讨论，不需要重复 Plugin Bootstrap，也不需要重新设计已经确定的方向。
+
+### 下一步
+先讨论：
+
+```text
+什么是 Unreal Asset？
+Content Browser Asset vs Level Actor
+为什么 Asset Registry 是正确的资产发现边界
+```
+
+讨论完成后再进入代码实现。
+
+## 2026-10-01 — V2 状态校正 / V3 Codex 交接
+
+### 当前事实
+
+根据最新项目状态确认：
+
+- V2.0 / Validation Workflow 已完成。
+- V2 已同步上传 GitHub。
+- Rename Auto-Fix 不再以 Ctrl+Z Undo 为目标。
+- 已加入独立 `Revert Last Fix` 控件，通过记录前后 Asset Path 显式恢复前一个资产名。
+- 项目正式进入 V3：Headless Validation & Automation。
+
+这条记录覆盖此前日志中“V2 尚未重新确认 push”的旧时点状态；旧记录保留作为当时事实。
+
+### V3 代码审查结论
+
+针对当前 `SProductionPipelineToolkit.cpp` 进行职责审查后确认：
+
+`OnScanClicked()` 仍混合：
+
+```text
+UI Input
+Asset Registry Discovery
+Redirector Filtering
+Rule Evaluation
+FValidationRun Construction
+Summary
+Slate Presentation
+```
+
+因此 V3 第一任务不直接实现 Commandlet，而是先建立共享执行边界：
+
+```text
+FValidationConfig
+├─ Scope
+└─ BlueprintPrefix
+
+FValidationRunner
+├─ Config Validation
+├─ Asset Registry Discovery
+├─ Redirector Filtering
+├─ Rule Evaluation
+├─ FValidationRun Construction
+└─ Summary
+```
+
+Slate 保留：
+
+- UI input
+- status
+- summary / result rendering
+- Fix / Revert
+- Editor-only interaction
+
+### Codex 协作方式
+
+从 V3 起采用：
+
+```text
+Chat
+→ Architecture / UE Learning / Review
+
+Codex
+→ Repository Editing / Build / Debug
+```
+
+第一份 Codex 任务严格限制为：
+
+```text
+Extract FValidationConfig + FValidationRunner.
+Preserve Editor behavior.
+Do not implement Commandlet yet.
+```
+
+完成后回到 Review：
+
+- Runner 是否真正不依赖 Slate
+- Config 是否保持最小
+- 是否引入不必要抽象
+- Baseline fixture 是否保持
+- Fix / Revert / JSON 是否未被破坏
+
+### 文档体系更新
+
+项目长期文档扩展为：
+
+```text
+README.md
+PROJECT_STATE.md
+ARCHITECTURE.md
+SESSION_LOG.md
+AGENTS.md
+```
+
+新增规则：
+
+> 所有长期项目文档必须维护中文 + English 双语版本。
+
+
+- UE framework knowledge
+- architecture reasoning
+- real bug lessons
+- debugging mental models
+- interview / review questions
+
+`AGENTS.md` 专门维护 Codex / Agent 的开发护栏和当前工作边界。
+
+### V3.0-A 验收基线
+
+```text
+Scope  = /Game/ValidationTest
+Prefix = BP_
+```
+
+预期：
+
+```text
+BP_PlayerTest → PASS
+Test_Player   → FAIL
+M_Test        → SKIP
+BP_EnemyTest  → PASS
+```
+
+在这一步实际验证完成之前，不把 Runner 或 Commandlet 写成“已完成”。
+
+---
+
+## 2026-10-01 — 项目文档维护
+
+- 按用户要求清理过期记录与项目外文档引用，修正实际源码路径，补齐 V1 中文交接记录及对应英文翻译。
+- 完成文档静态检查；未修改 C++ 或模块配置，未执行构建或 Editor 验证。V3.0-A 仍待实现和验证。
+
+---
+
+# English Version
 > Chronological development record. Keep this file append-oriented; summarize older history rather than rewriting it into project state.
+
+---
+
+## 2026-09-20 — Project Snapshot Reconciled / V1 Handoff Confirmed
+
+### Actual
+- Reconciled `PROJECT_STATE.md`, `ARCHITECTURE.md`, and `SESSION_LOG.md` against the latest project snapshot.
+- Kept the established architecture unchanged; no redesign introduced.
+- Confirmed V0 complete and V1 active.
+- Confirmed the immediate data-flow target: `Asset Registry → Rule → Evaluate → Validation Result → Editor display`.
+- Confirmed the next discussion begins with the UE semantic boundary between `Content Browser Asset` and `Level Actor`.
+- Deferred SQLite, Commandlet, Python, CI, Blender, and AI until the V1 validation path is real and demonstrable.
+
+### Result
+The three continuity files now use the latest project snapshot as the working baseline. The project is ready to continue from the V1 design discussion without replaying bootstrap work or redesigning the established direction.
+
+### Next Step
+Discuss what an Unreal asset is, the Content Browser Asset vs Level Actor boundary, and why Asset Registry is the correct discovery mechanism before implementing code.
+
 
 ## 2026-09-07 — Project / UE Environment Established
 
@@ -386,21 +919,468 @@ Do not jump to SQLite, Commandlet, CI, Blender, or AI before the V1 validation p
 
 ---
 
-## 2026-09-20 — Continuity files verified against AGENTS.md
 
-### Plan
-Treat Desktop `AGENTS.md` as the baseline, check and update the three continuity files, then continue from the current design and progress without redesigning.
+---
 
-### Actual
-- Used Desktop `AGENTS.md` as the collaboration baseline: V0 complete, V1 current; discuss Asset / Level Actor before writing code.
-- Verified Git locally: branch `main`, tracking `origin/main`, working tree clean, HEAD `0637f81` (`V0: Bootstrap UE Editor toolkit`), remote `https://github.com/azv147/PipelineToolkit.git`.
-- Confirmed plugin source matches V0: Nomad tab, Window menu, Slate Status/Scan placeholder; Scan is not connected to Asset Registry.
-- Corrected stale facts in `PROJECT_STATE.md`: branch is `main`; `Resources/Icon128.png` is absent; recorded current `.uplugin` module type and `.uproject` plugin discovery.
-- `ARCHITECTURE.md` guardrails unchanged; added a “continue from accepted architecture” decision record.
-- Collaboration instructions remain in Desktop `AGENTS.md`, not in `PROJECT_STATE.md`.
+## 2026-09-23 — V1 Validation Slice Completed / V2.0 Handoff
+
+### Context
+Continue from the real V1 asset-validation flow without redesigning the project or prematurely introducing a large rule framework.
+
+### V1 Completion
+Implemented and verified the full flow:
+
+```text
+Asset Registry
+→ FAssetData
+→ BlueprintNamingRule
+→ FValidationResult
+→ TArray<FValidationResult>
+→ Slate Editor Display
+```
+
+Fixture:
+
+```text
+/Game/ValidationTest/BP_PlayerTest
+/Game/ValidationTest/Test_Player
+/Game/ValidationTest/M_Test
+/Game/ValidationTest/Characters/BP_EnemyTest
+```
+
+Observed results:
+
+```text
+BP_PlayerTest → PASS
+Test_Player   → FAIL
+M_Test        → SKIP
+BP_EnemyTest  → PASS
+```
+
+### Implementation Steps
+
+#### V1.0 Asset Discovery
+- Prepared four reproducible `.uasset` fixtures.
+- Recursively scanned `/Game/ValidationTest` with Asset Registry.
+- Obtained four `FAssetData` entries.
+- Verified metadata including `AssetName`, `AssetClassPath`, `PackagePath`, and `ObjectPath`.
+- Used on-disk queries to keep unsaved state out of the initial discovery verification.
+
+#### V1.1 First Rule
+Implemented `BlueprintNamingRule`:
+
+```text
+Blueprint → check BP_ prefix
+non-Blueprint → SKIP
+```
+
+#### V1.2 Validation Result
+Created `FValidationResult` containing:
+
+- AssetName
+- AssetObjectPath
+- RuleId
+- Status (`Passed` / `Failed` / `Skipped`)
+- Message
+
+#### V1.3 Rule Extraction
+Extracted the naming check into:
+
+```text
+FBlueprintNamingRule::Evaluate(const FAssetData&)
+```
+
+Scan owns discovery and orchestration; Rule owns validation; Result carries the outcome.
+
+#### V1.4 Result Collection / Editor Display
+- `SProductionPipelineToolkit` stores the current `TArray<FValidationResult>`.
+- Slate reads and displays validation results.
+- Output Log remains the debugging output; UI provides the user-facing presentation.
+
+### Key Decision: Evidence-driven Abstraction
+Do not introduce:
+
+- `IRule`
+- `RuleManager`
+- `RuleFactory`
+- generic rule registry
+
+Reason:
+
+> Do not abstract without evidence; let real use cases prove repeated structure before paying the design, testing, and maintenance cost.
+
+One real rule does not yet justify a generic rule framework.
+
+### V1 Acceptance
+V1 means discovering real project assets, evaluating a real rule, producing structured results, and displaying them in the Editor.
+
+This goal was completed.
+
+### Next Stage: V2.0
+The project enters:
+
+```text
+V2.0 — Validation Run
+```
+
+The first step is to organize `TArray<FValidationResult>` into:
+
+```text
+Validation Run
+├─ Scope / Scan Path
+├─ Asset Count
+├─ Results
+├─ Passed Count
+├─ Failed Count
+└─ Skipped Count
+```
+
+Config, SQLite, and Commandlet are not the first step. Summary, configuration, safe Auto-Fix, JSON reporting, and incremental/dirty-asset validation follow only as real needs emerge.
+
+### Git Checkpoint
+V1 was ready for a checkpoint. Suggested commit message:
+
+```text
+V1: Add asset validation flow
+```
+
+This session did not treat a suggested commit as a verified push; remote state requires actual Git verification.
 
 ### Result
-Continuity files now match repository truth. Next work remains the V1 design discussion, not a Rule Engine implementation.
+The project progressed from an Editor-plugin demo to a demonstrable asset-validation tool. The next work starts with V2.0 `Validation Run`.
+
+---
+
+## 2026-09-23 → 2026-09-27 — V2 Validation Workflow Completed
+
+### Context
+V2 was built on the verified V1 Asset Validation data path. The goal was to package one validation execution into a coherent, explainable Editor workflow rather than expand the project into a Rule Framework.
+
+### V2.0 — Validation Run
+Implemented and verified:
+
+```text
+Asset Registry
+→ Rule Evaluation
+→ Validation Result
+→ Validation Run
+→ Editor Summary / Details
+```
+
+`FValidationRun` carries:
+
+```text
+Scope
+Asset Count
+Results
+Passed Count
+Failed Count
+Skipped Count
+```
+
+### V2.1 / V2.2 — Summary / Rule Configuration
+Implemented and verified:
+
+- configurable Scan Scope
+- stale results are cleared on invalid Scope input
+- configurable Blueprint Naming Prefix
+- stale results are cleared on invalid rule configuration
+- default `Scope=/Game/ValidationTest`, `Prefix=BP_` preserves the original fixture results:
+
+```text
+BP_PlayerTest → PASS
+Test_Player   → FAIL
+M_Test        → SKIP
+BP_EnemyTest  → PASS
+```
+
+### V2.3 — Safe Auto-Fix
+Implemented and verified:
+
+```text
+FAIL
+  ↓
+Suggested Asset Name
+  ↓
+UEditorAssetSubsystem::RenameAsset()
+  ↓
+Re-validation
+```
+
+Verified example:
+
+```text
+Test_Player
+    ↓ Fix
+BP_Test_Player
+    ↓ Scan
+PASS
+```
+
+### Auto-Fix Debugging / Engineering Findings
+
+#### 1. Asset path semantics
+An initial implementation incorrectly treated `GetLongPackageName()` as a directory, producing:
+
+```text
+/Game/ValidationTest/Test_Player.BP_Test_Player
+```
+
+The correct distinction is:
+
+```text
+Package Path
+/Game/ValidationTest
+
+Package Name
+/Game/ValidationTest/Test_Player
+
+Object Path
+/Game/ValidationTest/Test_Player.Test_Player
+```
+
+The corrected destination is:
+
+```text
+/Game/ValidationTest/BP_Test_Player.BP_Test_Player
+```
+
+#### 2. Redirector / file-system boundary
+Testing showed that manipulating `.uasset` files directly in Windows Explorer can leave Content Browser, Asset Registry, and disk state temporarily inconsistent.
+
+Conclusion:
+
+> Unreal Assets should be manipulated through the Unreal Editor / Content Browser / UE Asset APIs rather than treated as ordinary files.
+
+Asset Rename may also create Redirectors, which are not the same thing as ordinary game-content assets.
+
+#### 3. Ctrl+Z / transaction behavior
+An initial attempt to wrap the high-level `RenameAsset()` operation in an outer `FScopedTransaction` caused a UE crash during testing.
+
+Removing the extra transaction eliminated the crash, but `Ctrl+Z` still did not reliably undo the Rename.
+
+Current conclusion:
+
+```text
+RenameAsset()
+≠
+ordinary UObject Ctrl+Z transaction
+```
+
+V2 therefore does not claim generic Undo support for the current Rename Auto-Fix. An explicit Revert mechanism can be added later if a real requirement justifies it.
+
+### V2.4 — JSON Report
+Implemented and verified:
+
+```text
+ValidationRun
+      ↓
+ValidationReportWriter
+      ↓
+JSON
+      ↓
+Saved/ValidationReports/ValidationReport.json
+```
+
+The JSON report was verified as a real file and contains:
+
+```text
+schema_version
+tool
+scope
+asset_count
+passed
+failed
+skipped
+results[]
+```
+
+Each result includes at least:
+
+```text
+asset
+object_path
+rule
+status
+message
+```
+
+Auto-Fix metadata is included when applicable:
+
+```text
+can_auto_fix
+suggested_asset_name
+```
+
+### V2 Completion
+
+V2 now provides:
+
+```text
+Asset Registry
+      ↓
+Rule Evaluation
+      ↓
+Validation Result
+      ↓
+Validation Run
+      ├── Editor Summary / Details
+      ├── Rule Configuration
+      ├── Safe Auto-Fix
+      └── JSON Report
+```
+
+The milestone is intentionally closed without adding:
+
+- a larger Rule Framework
+- SQLite
+- Dashboard / Charting
+- Commandlet
+- Python
+- CI
+- Blender
+- AI
+
+### Next Stage — V3.0
+The next work window starts at the automation boundary:
+
+```text
+Editor Commandlet
+    ↓
+Validation Core
+    ↓
+JSON + Exit Code
+```
+
+The goal is to prove that Editor UI and Commandlet can invoke the same Validation Core rather than duplicate business logic.
+
+### Git checkpoint
+The V2 JSON Report was run and verified, but this session did not re-verify:
+
+```bash
+git status
+git log
+git push
+```
+
+Therefore this log does not claim that V2 has already been committed or pushed.
+
+A suitable V2 checkpoint could be:
+
+```text
+feat(validation): complete validation workflow and JSON reporting
+```
+
+## 2026-10-01 — V2 State Reconciled / V3 Codex Handoff
+
+### Current Facts
+
+The latest project state confirms:
+
+- V2.0 / Validation Workflow is complete.
+- V2 has been synced to GitHub.
+- Rename Auto-Fix no longer treats generic Ctrl+Z Undo as a goal.
+- A dedicated `Revert Last Fix` control explicitly restores the previous asset name using recorded asset paths.
+- The project is now in V3: Headless Validation & Automation.
+
+This later entry supersedes the older point-in-time note that V2 push status had not yet been re-verified. The historical note remains preserved as the truth at that earlier time.
+
+### V3 Code-Review Conclusion
+
+Review of the current `SProductionPipelineToolkit.cpp` confirms that `OnScanClicked()` still mixes:
+
+```text
+UI Input
+Asset Registry Discovery
+Redirector Filtering
+Rule Evaluation
+FValidationRun Construction
+Summary
+Slate Presentation
+```
+
+Therefore the first V3 task is not Commandlet implementation. It first establishes a shared execution boundary:
+
+```text
+FValidationConfig
+├─ Scope
+└─ BlueprintPrefix
+
+FValidationRunner
+├─ Config Validation
+├─ Asset Registry Discovery
+├─ Redirector Filtering
+├─ Rule Evaluation
+├─ FValidationRun Construction
+└─ Summary
+```
+
+Slate keeps UI input, status, presentation, Fix/Revert, and Editor-only interaction.
+
+### Codex Collaboration Model
+
+From V3 onward:
+
+```text
+Chat
+→ Architecture / UE Learning / Review
+
+Codex
+→ Repository Editing / Build / Debug
+```
+
+The first Codex task is intentionally constrained to:
+
+```text
+Extract FValidationConfig + FValidationRunner.
+Preserve Editor behavior.
+Do not implement Commandlet yet.
+```
+
+Review after completion should verify:
+
+- Runner has no Slate dependency
+- Config remains minimal
+- no speculative abstraction was introduced
+- baseline fixture remains unchanged
+- Fix/Revert/JSON behavior is preserved
+
+### Documentation System Update
+
+Long-lived project documents are now:
+
+```text
+README.md
+PROJECT_STATE.md
+ARCHITECTURE.md
+SESSION_LOG.md
+AGENTS.md
+```
+
+New rule:
+
+> All long-lived project documents must be maintained in both Chinese and English.
+
+
+`AGENTS.md` owns Codex/agent development guardrails and current task boundaries.
+
+### V3.0-A Acceptance Baseline
+
+```text
+Scope  = /Game/ValidationTest
+Prefix = BP_
+```
+
+Expected:
+
+```text
+BP_PlayerTest → PASS
+Test_Player   → FAIL
+M_Test        → SKIP
+BP_EnemyTest  → PASS
+```
+
+Do not record Runner or Commandlet as complete until the corresponding implementation and verification actually occur.
 
 ---
 
@@ -411,6 +1391,7 @@ Before ending each future session, update:
 - `PROJECT_STATE.md`: only if the current truth changed
 - `ARCHITECTURE.md`: only if a design decision/constraint changed
 - `SESSION_LOG.md`: append what happened and what remains
+- `AGENTS.md`: update when agent working boundaries or durable development rules change
 
 At the start of a new session, read in this order:
 
@@ -419,3 +1400,10 @@ At the start of a new session, read in this order:
 3. `SESSION_LOG.md` for recent history / previous stopping point
 
 Before making claims about build state, verify with the actual project (`git status`, UE build result, logs, or the relevant tool output).
+
+---
+
+## 2026-10-01 — Project Documentation Maintenance
+
+- Removed outdated records and references to documents outside the project as requested, corrected source paths, and added the V1 Chinese handoff entry with its English translation.
+- Completed static documentation checks; C++ and module configuration were unchanged. No build or Editor verification was run. V3.0-A still requires implementation and verification.

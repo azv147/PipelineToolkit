@@ -1,16 +1,13 @@
 # UE Production Pipeline Toolkit — 项目状态 / Project State
 
-> 中文部分为项目协作的主要版本，用于对话、纠错和校正。
-> English section is the GitHub-facing companion version.
-> 中文优先；英文完整追加于文档后半部分。
+> 当前真实状态文档。项目事实发生变化时更新。
+> Current-truth document. Update when verified project facts change.
+>
+> 最后更新 / Last updated: 2026-10-01
 
 ---
 
 # 中文版
-
-> 只记录当前真实状态。项目事实发生变化时更新此文件。
-> 最后验证：2026-09-20（Asia/Singapore）
-> 本轮核对：Desktop `AGENTS.md` 基线 + 本地仓库 `git` / 插件源码。不重新设计。
 
 ## 1. 项目身份
 
@@ -19,353 +16,704 @@
 - Unreal Engine：`5.8.2`
 - 平台：Windows
 - 项目类型：Game → Blank → C++
-- 方向：面向游戏行业 Tools / Systems / Pipeline Engineering 的 UE 作品集项目
-
-## 2. 项目目标
-
-制作一个小型、面向生产流程的 Unreal Editor 工具，用于展示：
-
-- C++ / Unreal Engine 工程能力
-- Editor 工具与工作流设计能力
-- 规则驱动的资产验证
-- 自动化 / Commandlet 思维
-- 基础可观测性
-- CI / Pipeline 集成思维
-- 工程判断力：简单、可解释、可扩展
+- 目标岗位方向：游戏行业 Tools / Systems / Pipeline Engineer
+- 项目性质：作品集原型，不以商用通用插件为目标
 
 作品集原则：
 
 > 30 秒讲清价值；30 分钟讲清实现。
 
-这是一个作品集原型，而不是可直接商用的生产插件。
+项目希望展示：
 
-## 3. 当前里程碑
+- Unreal Engine C++ 工程能力
+- Editor Tool / Slate 工作流设计
+- Rule-driven Asset Validation
+- Automation / Commandlet / CI 思维
+- 基础可观测性与性能意识
+- 模块边界与工程判断力
+- “先证明真实需求，再支付抽象成本”的设计习惯
 
-**V0 已完成。当前进入 V1。**
+---
+
+## 2. 里程碑状态
+
+```text
+V0  Editor Plugin + Slate Toolkit        ✅
+V1  Asset Registry + Validation Core     ✅
+V2  Production Validation Workflow       ✅
+V3  Headless Validation & Automation     ▶ Active
+```
 
 ### V0 — 已完成
 
 已验证：
 
-- UE C++ 项目创建成功
-- `ProductionPipelineToolkit` 插件创建成功
-- Plugin Module 编译成功
-- Plugin 能被 UE Editor 正常加载
-- `StartupModule()` / `ShutdownModule()` 生命周期正常
-- 注册 Nomad Tab
-- 注册 Window 菜单项
-- Slate UI 能在 Editor 中显示
-- `Status: Ready` 正常显示
-- 点击 `Scan` 后状态变为 `Status: Scan Requested`
-
-当前插件入口与 Editor 集成已经可运行；下一步是构建真实功能，而不是继续做 Plugin 启动骨架。Scan 仍是占位交互（只改 Status 文本），尚未接入 Asset Registry 或任何 Rule。
-
-### V1 — 当前目标
-
-实现最小的真实验证数据流：
-
 ```text
-Asset
-  ↓
-Rule
-  ↓
-Evaluate
-  ↓
-Validation Result / Issue
-  ↓
-Editor 展示
+Plugin
+→ Module
+→ Editor Integration
+→ Slate UI
+→ User Interaction
 ```
 
-第一步的概念重点：
+包括：
 
-- 理解 `Content Browser Asset` 与 `Level Actor` 的区别
-- 然后使用 `Asset Registry` 发现真实项目资产
+- UE C++ 项目与 Editor Plugin
+- Module 生命周期
+- Nomad Tab
+- ToolMenus 菜单入口
+- Slate UI
+- Scan 交互入口
 
-当前不要跳到 SQLite、Commandlet、CI、Blender 或 AI。
+### V1 — 已完成
 
-第一步优先讨论设计（Asset 语义与 Content Browser Asset vs Level Actor），再写代码。不要直接写完整 Rule Engine。
+已跑通真实 Asset Validation 垂直切片：
 
-## 4. 当前仓库状态
+```text
+Asset Registry
+    ↓
+FAssetData
+    ↓
+FBlueprintNamingRule
+    ↓
+FValidationResult
+    ↓
+Slate Editor Display
+```
 
-GitHub 仓库已经创建并完成上传。
+测试 Fixture：
 
-远程：`https://github.com/azv147/PipelineToolkit.git`
+```text
+/Game/ValidationTest/BP_PlayerTest
+/Game/ValidationTest/Test_Player
+/Game/ValidationTest/M_Test
+/Game/ValidationTest/Characters/BP_EnemyTest
+```
 
-当前仓库约 1.2 MB，这是因为 UE 生成的构建产物和缓存文件被排除在版本控制之外。
+基线结果：
 
-已追踪的项目内容包括：
+```text
+BP_PlayerTest → PASS
+Test_Player   → FAIL
+M_Test        → SKIP
+BP_EnemyTest  → PASS
+```
 
-- `PipelineToolkit.uproject`
-- `Config/`
-- `Source/`
-- `Plugins/ProductionPipelineToolkit/`
-- `Plugins/VisualStudioTools/` 中选定的源码 / 文档内容
-- `README.md`
-- `LICENSE`
-- `THIRD_PARTY_NOTICES.md`
+### V2 — 已完成并同步 GitHub
 
-未追踪：
+V2 将“能做一次验证”组织成完整 Editor Validation Workflow：
 
-- `Binaries/`
-- `Intermediate/`
-- `Saved/`
-- `DerivedDataCache/`
-- `.vs/`
-- `*.slnx`
-- 其他生成的构建 / 缓存输出
+```text
+Asset Registry
+      ↓
+Rule Evaluation
+      ↓
+FValidationResult
+      ↓
+FValidationRun
+      ├── Editor Summary / Details
+      ├── Rule Configuration
+      ├── Safe Auto-Fix / Explicit Revert
+      └── JSON Report
+```
 
-### 第三方依赖
+已完成并验证：
 
-`Plugins/VisualStudioTools/` 被有意保留为第三方依赖，用于提高项目复现性。其原始源码、文档和许可证与本项目自己的代码及 MIT License 保持边界分离。
+- `FValidationRun`
+  - Scope
+  - Asset Count
+  - Results
+  - Passed / Failed / Skipped Count
+- Scan Scope 可配置
+- Blueprint Naming Prefix 可配置
+- Invalid Scope / Rule Configuration 会清空过期 UI 结果
+- Safe Rename Auto-Fix
+- 独立 `Revert Last Fix` 控件恢复前一个资产名
+- JSON Report 落盘到：
+  - `Saved/ValidationReports/ValidationReport.json`
 
-## 5. 当前工作树 / 分支状态
+### Auto-Fix 当前事实
 
-2026-09-20 本地验证：
+最初尝试依赖 `Ctrl+Z` 撤销 Rename，但测试表明：
 
-- 分支：`main`（跟踪 `origin/main`，已同步）
-- HEAD：`0637f81` — `V0: Bootstrap UE Editor toolkit`
-- Working tree：clean
-- GitHub 远程已连接；不要重新讨论本地生成物 / 缓存是否应整体上传
-- 修改文件前仍应再跑 `git status`
+- `RenameAsset()` 不能简单视作普通 UObject Transaction
+- 外层 `FScopedTransaction` 曾导致不稳定 / Crash
+- 移除外层 Transaction 后，Ctrl+Z 仍不能可靠恢复 Rename
 
-## 6. 当前重要文件
+当前方案已经改为：
 
-自有 Plugin 源码：
+```text
+Fix
+ ↓
+UEditorAssetSubsystem::RenameAsset()
+ ↓
+记录 Original / Fixed Path
+ ↓
+Revert Last Fix
+ ↓
+显式 Rename 回原资产名
+```
+
+因此：
+
+- 不再把 Ctrl+Z Undo 作为 Auto-Fix 目标
+- Revert 是明确的 Editor Workflow
+- 当前不建立通用 Fix Framework
+
+### V3 — 当前阶段
+
+V3 的总体目标：
+
+> 将现有 Editor Validation Workflow 推进到可无 UI 执行的 Automation Boundary，同时保证 Editor UI 与未来 Commandlet 共享同一套验证语义。
+
+目标架构：
+
+```text
+Editor UI ─────┐
+               ├── FValidationRunner
+Commandlet ────┘
+                       ↓
+                FValidationRun
+                  ├── JSON
+                  └── Exit Code
+```
+
+但 **当前第一步不是直接写 Commandlet**。
+
+#### V3.0-A — 当前开发切片：Validation Runner Refactor
+
+当前代码审查确认：
+
+`SProductionPipelineToolkit::OnScanClicked()` 仍同时承担：
+
+- UI input
+- Asset Registry discovery
+- Redirector filtering
+- Rule evaluation
+- `FValidationRun` construction
+- Summary calculation
+- Slate presentation
+
+当前第一任务是新增最小共享边界：
+
+```text
+FValidationConfig
+├─ Scope
+└─ BlueprintPrefix
+
+FValidationRunner
+├─ validate config
+├─ Asset Registry discovery
+├─ redirector filtering
+├─ rule evaluation
+├─ build FValidationRun
+└─ recalculate summary
+```
+
+Slate 保留：
+
+- TextBox 输入
+- Status
+- Summary / Result Rows
+- Fix / Revert
+- Editor-only interaction
+
+第一阶段完成标准：
+
+```text
+Editor behavior unchanged
++
+same fixture results
++
+validation execution no longer owned by Slate
+```
+
+在此验证完成之前：
+
+- 不实现 Commandlet
+- 不实现 Python wrapper
+- 不实现 GitHub Actions CI
+- 不扩展 Rule Framework
+
+#### V3.0-B — 后续：Editor Commandlet
+
+Runner 重构验证后再进入：
+
+```text
+UE Editor Commandlet
+    ↓
+FValidationRunner
+    ↓
+FValidationRun
+    ├── JSON Report
+    └── Process Exit Code
+```
+
+---
+
+## 3. 当前重要文件
 
 ```text
 Plugins/ProductionPipelineToolkit/
-├─ ProductionPipelineToolkit.uplugin
 └─ Source/ProductionPipelineToolkit/
-   ├─ Private/ProductionPipelineToolkit.cpp
-   ├─ Private/UI/SProductionPipelineToolkit.cpp
-   ├─ Private/UI/SProductionPipelineToolkit.h
-   ├─ Public/ProductionPipelineToolkit.h
+   ├─ Private/
+   │  ├─ ProductionPipelineToolkit.cpp
+   │  ├─ UI/
+   │  │  └─ SProductionPipelineToolkit.cpp
+   │  └─ Validation/
+   │     ├─ BlueprintNamingRule.h
+   │     ├─ BlueprintNamingRule.cpp
+   │     └─ ValidationReportWriter.cpp
+   ├─ Public/
+   │  └─ Validation/
+   │     ├─ ValidationResult.h
+   │     ├─ ValidationRun.h
+   │     └─ ValidationReportWriter.h
    └─ ProductionPipelineToolkit.Build.cs
 ```
 
-补充事实（不是新设计）：
+V3.0-A 计划新增：
 
-- 当前仓库中没有 `Resources/Icon128.png`
-- 插件 Module 在 `.uplugin` 中为 `Type: Runtime` / `LoadingPhase: Default`，并依赖 Editor 模块（`UnrealEd`、`LevelEditor`、`ToolMenus`）
-- `PipelineToolkit.uproject` 的 Plugins 列表未显式列出本插件；它作为项目 `Plugins/` 目录插件被发现
-- 连续性文档已放入项目根目录（`PROJECT_STATE.md` / `ARCHITECTURE.md` / `SESSION_LOG.md`），当前尚未纳入 Git 跟踪
+```text
+ValidationConfig.h
+ValidationRunner.h
+ValidationRunner.cpp
+```
 
-## 7. 当前约束
+这些文件在 Codex 实际创建并验证前，仍属于“计划”，不是“已实现”。
 
-- 保持项目小而且易于展示。
-- 优先使用 UE 原生机制。
-- 不设计自定义 Validation DSL。
-- 不引入独立 CLI 进程；后期使用 UE Editor Commandlet。
-- 不为了外观而构建 Dashboard / 图表系统。
-- 在真实验证数据路径出现之前，不要过度抽象。
-- 重要设计应从生产价值出发解释，而不是堆砌技术名词。
+---
 
-## 8. 当前已确定的设计方向
+## 4. Git / 仓库状态
 
-初期规则应优先选择可靠且容易展示的检查，例如：
+当前项目事实：
 
-- 命名 / 路径规则
-- 三角形数量限制
-- LOD 存在性 / 数量限制
-- 纹理分辨率 / 大小 / Mipmap 相关检查
+- GitHub 仓库已建立
+- V2.0 已完成并同步上传 GitHub
+- 主分支此前确认为 `main`，跟踪 `origin/main`
+- UE 生成产物继续排除在版本控制之外
+- `Saved/ValidationReports/` 为运行产物，不应作为源码提交
 
-Material Complexity 估算暂时延后，因为它可能产生误导，而且并不是证明核心架构所必需的。
+开始 Codex 修改前应实际执行：
 
-Safe Auto-Fix 应限制为一到两个可逆案例，并使用 UE 的事务 / Undo 支持。
+```bash
+git status
+git log --oneline -5
+```
 
-## 9. 下一步具体任务
+涉及“已 build / 已 commit / 已 push”的结论必须以命令输出或 UE 实际结果为依据，不凭文档推断。
 
-从 V1 开始，仅推进第一小段真实数据流：
+---
 
-1. 明确这个工具中的 Unreal `Asset` 是什么
-2. 理解 `Content Browser` Asset 与 `Level Actor` 的区别
-3. 理解为什么 `Asset Registry` 适合作为资产发现机制
-4. 设计最小 Rule / Evaluate / Result 模型
-5. 实现一个真实 Rule，并在 Editor 中显示结果
+## 5. 工程约束
 
-本会话就绪点：停在第 1–2 步的设计讨论之前；尚未开始写 V1 代码。
+- 保持项目小、真实、易展示。
+- 优先使用 Unreal Engine 原生机制。
+- 非必要不抽象。
+- 当前不引入 `IRule` / `RuleManager` / `RuleFactory` / 通用 Registry。
+- JSON 是 `FValidationRun` 的输出边界，不创建第二套 Validation Model。
+- Auto-Fix / Revert 当前属于 Editor Workflow。
+- Commandlet 第一版只做 Validation，不自动修改资产。
+- Python 未来只做 orchestration / glue，不承载业务 Rule。
+- 不引入独立 Validation 可执行程序。
+- 不为了展示而构建 Dashboard / 大型 Framework / AI-RAG 架构。
+- 重要设计应以生产问题解释，而不是以技术名词解释。
 
-在这条数据流跑通之前，不实现后续 Pipeline 层。
+### 文档开发准则
+
+**所有项目长期文档必须输出中文 + English 双语版本。**
+
+默认结构：
+
+```text
+# 中文版
+...
+# English Version
+...
+```
+
+文档职责：
+
+- `README.md`：GitHub / 对外展示
+- `PROJECT_STATE.md`：当前真实状态
+- `ARCHITECTURE.md`：架构理由、边界、重要决策
+- `SESSION_LOG.md`：按时间追加实际开发记录
+- `AGENTS.md`：Codex / Agent 的仓库级开发规则与当前工作边界
+
+文档不得把“计划”写成“已完成”。
+
+---
+
+## 6. Codex 当前交接任务
+
+Codex 第一任务：
+
+```text
+Refactor the existing Editor validation execution into a reusable
+FValidationRunner driven by FValidationConfig.
+```
+
+范围：
+
+- 把 Asset Registry discovery 移出 Slate
+- 把 Redirector filtering 移出 Slate
+- 把 BlueprintNamingRule evaluation 移出 Slate
+- 把 `FValidationRun` construction / summary 移出 Slate
+- 保留 Slate presentation
+- 保留 Fix / Revert 在 Editor UI
+- 保持 JSON schema 不变
+- 不实现 Commandlet
+- 不引入 Rule Framework
+
+验收：
+
+```text
+BP_PlayerTest → PASS
+Test_Player   → FAIL
+M_Test        → SKIP
+BP_EnemyTest  → PASS
+```
+
+且 Editor UI 的现有行为保持一致。
 
 ---
 
 # English Version
 
-> Current truth only. Update this file when a fact about the project changes.
-> Last verified: 2026-09-20 (Asia/Singapore)
-> This pass checked Desktop `AGENTS.md` plus local `git` / plugin source. No redesign.
-
 ## 1. Project Identity
 
 - Project: `PipelineToolkit`
 - Plugin: `ProductionPipelineToolkit`
-- Engine: Unreal Engine `5.8.2`
+- Unreal Engine: `5.8.2`
 - Platform: Windows
 - Project type: Game → Blank → C++
-- Direction: Unreal Engine Tools / Systems / Pipeline Engineering portfolio project
-
-## 2. Goal
-
-Build a small production-oriented Unreal Editor tool that demonstrates:
-
-- C++ / Unreal Engine engineering ability
-- Editor tooling and workflow design
-- Rule-driven asset validation
-- Automation / Commandlet thinking
-- Basic observability
-- CI / pipeline integration thinking
-- Engineering judgment: simple, explainable, extensible
+- Target roles: game-industry Tools / Systems / Pipeline Engineer
+- Project type: portfolio prototype, not a commercial general-purpose plugin
 
 Portfolio principle:
 
-> 30 seconds to explain the value; 30 minutes to explain the implementation.
+> Explain the value in 30 seconds; explain the implementation in 30 minutes.
 
-This is a portfolio prototype, not a production-ready commercial plugin.
+The project is intended to demonstrate:
 
-## 3. Current Milestone
+- Unreal Engine C++ engineering
+- Editor tooling / Slate workflow design
+- rule-driven asset validation
+- Automation / Commandlet / CI thinking
+- basic observability and performance awareness
+- module boundaries and engineering judgment
+- evidence-driven abstraction
 
-**V0 is complete. V1 is next.**
+---
+
+## 2. Milestone Status
+
+```text
+V0  Editor Plugin + Slate Toolkit        ✅
+V1  Asset Registry + Validation Core     ✅
+V2  Production Validation Workflow       ✅
+V3  Headless Validation & Automation     ▶ Active
+```
 
 ### V0 — complete
 
 Verified:
 
-- UE C++ project created successfully
-- `ProductionPipelineToolkit` plugin created
-- plugin module builds successfully
-- plugin loads in UE Editor
-- `StartupModule()` / `ShutdownModule()` lifecycle works
-- Nomad tab registered
-- Window menu entry registered
-- Slate UI appears in Editor
-- `Status: Ready` displays
-- `Scan` button changes status to `Status: Scan Requested`
-
-The current plugin entry point and Editor integration are functional; the next work is feature construction rather than plugin bootstrap. Scan is still a placeholder (status text only) and has not reached Asset Registry or any rule.
-
-### V1 — current target
-
-Build the smallest real validation data flow:
-
 ```text
-Asset
-  ↓
-Rule
-  ↓
-Evaluate
-  ↓
-Validation Result / Issue
-  ↓
-Editor display
+Plugin
+→ Module
+→ Editor Integration
+→ Slate UI
+→ User Interaction
 ```
 
-First conceptual step:
+Includes the UE C++ project and plugin, module lifecycle, Nomad Tab, ToolMenus entry, Slate UI, and Scan interaction.
 
-- understand `Content Browser Asset` vs `Level Actor`
-- then use `Asset Registry` to discover real assets
+### V1 — complete
 
-Do not jump to SQLite, Commandlet, CI, Blender, or AI yet.
+Verified vertical slice:
 
-Discuss design first (asset semantics and Content Browser Asset vs Level Actor) before writing code. Do not write a full Rule Engine yet.
+```text
+Asset Registry
+    ↓
+FAssetData
+    ↓
+FBlueprintNamingRule
+    ↓
+FValidationResult
+    ↓
+Slate Editor Display
+```
 
-## 4. Current Repository State
+Fixture:
 
-The GitHub repository has been created and uploaded.
+```text
+/Game/ValidationTest/BP_PlayerTest
+/Game/ValidationTest/Test_Player
+/Game/ValidationTest/M_Test
+/Game/ValidationTest/Characters/BP_EnemyTest
+```
 
-Remote: `https://github.com/azv147/PipelineToolkit.git`
+Baseline:
 
-The repository is intentionally small (~1.2 MB) because UE-generated build and cache artifacts are excluded from version control.
+```text
+BP_PlayerTest → PASS
+Test_Player   → FAIL
+M_Test        → SKIP
+BP_EnemyTest  → PASS
+```
 
-Tracked project content includes:
+### V2 — complete and synced to GitHub
 
-- `PipelineToolkit.uproject`
-- `Config/`
-- `Source/`
-- `Plugins/ProductionPipelineToolkit/`
-- selected source/documentation for `Plugins/VisualStudioTools/`
-- `README.md`
-- `LICENSE`
-- `THIRD_PARTY_NOTICES.md`
+V2 turned validation into a coherent Editor workflow:
 
-Not tracked:
+```text
+Asset Registry
+      ↓
+Rule Evaluation
+      ↓
+FValidationResult
+      ↓
+FValidationRun
+      ├── Editor Summary / Details
+      ├── Rule Configuration
+      ├── Safe Auto-Fix / Explicit Revert
+      └── JSON Report
+```
 
-- `Binaries/`
-- `Intermediate/`
-- `Saved/`
-- `DerivedDataCache/`
-- `.vs/`
-- `*.slnx`
-- other generated build/cache output
+Verified:
 
-### Third-party dependency
+- `FValidationRun` summary state
+- configurable scan scope
+- configurable Blueprint naming prefix
+- stale-result clearing for invalid input
+- deterministic Rename Auto-Fix
+- explicit `Revert Last Fix`
+- JSON output under `Saved/ValidationReports/ValidationReport.json`
 
-`Plugins/VisualStudioTools/` is intentionally kept as a third-party dependency to improve project reproducibility. Its original source, documentation, and license remain separate from the project's own code and MIT license.
+### Current Auto-Fix truth
 
-## 5. Current Working Tree / Branch
+Generic Ctrl+Z Undo is no longer a project goal for Rename Auto-Fix.
 
-Verified locally on 2026-09-20:
+Testing showed:
 
-- branch: `main` (tracking `origin/main`, up to date)
-- HEAD: `0637f81` — `V0: Bootstrap UE Editor toolkit`
-- working tree: clean
-- GitHub remote connected; do not reopen whether generated/cache data should be uploaded wholesale
-- still run `git status` before modifying files
+- `RenameAsset()` cannot simply be assumed to behave like a normal UObject transaction
+- an outer `FScopedTransaction` caused instability / crash
+- removing it stopped the crash but did not provide reliable Ctrl+Z undo
 
-## 6. Important Current Files
+Current workflow:
 
-Own plugin source:
+```text
+Fix
+ ↓
+UEditorAssetSubsystem::RenameAsset()
+ ↓
+remember Original / Fixed Path
+ ↓
+Revert Last Fix
+ ↓
+explicit rename back
+```
+
+Auto-Fix/Revert remains an Editor workflow; no generic Fix Framework is being introduced.
+
+### V3 — active
+
+V3 aims to move the validation workflow across the automation boundary while keeping one validation semantics path shared by Editor UI and Commandlet.
+
+Target shape:
+
+```text
+Editor UI ─────┐
+               ├── FValidationRunner
+Commandlet ────┘
+                       ↓
+                FValidationRun
+                  ├── JSON
+                  └── Exit Code
+```
+
+The current first step is **not** Commandlet implementation.
+
+#### V3.0-A — current slice: Validation Runner Refactor
+
+Current code review shows that `SProductionPipelineToolkit::OnScanClicked()` still owns both UI and reusable validation execution.
+
+The first task is to introduce the smallest shared boundary:
+
+```text
+FValidationConfig
+├─ Scope
+└─ BlueprintPrefix
+
+FValidationRunner
+├─ validate config
+├─ Asset Registry discovery
+├─ redirector filtering
+├─ rule evaluation
+├─ build FValidationRun
+└─ recalculate summary
+```
+
+Slate keeps:
+
+- UI input
+- status
+- summary/result presentation
+- Fix/Revert
+- Editor-only interaction
+
+Acceptance:
+
+```text
+Editor behavior unchanged
++
+same fixture results
++
+validation execution no longer owned by Slate
+```
+
+Do not implement Commandlet, Python, CI, or a larger Rule Framework before this slice is verified.
+
+#### V3.0-B — next: Editor Commandlet
+
+After the Runner refactor is verified:
+
+```text
+UE Editor Commandlet
+    ↓
+FValidationRunner
+    ↓
+FValidationRun
+    ├── JSON Report
+    └── Process Exit Code
+```
+
+---
+
+## 3. Important Files
+
+Current validation-related source:
 
 ```text
 Plugins/ProductionPipelineToolkit/
-├─ ProductionPipelineToolkit.uplugin
 └─ Source/ProductionPipelineToolkit/
-   ├─ Private/ProductionPipelineToolkit.cpp
-   ├─ Private/UI/SProductionPipelineToolkit.cpp
-   ├─ Private/UI/SProductionPipelineToolkit.h
-   ├─ Public/ProductionPipelineToolkit.h
+   ├─ Private/
+   │  ├─ ProductionPipelineToolkit.cpp
+   │  ├─ UI/
+   │  │  └─ SProductionPipelineToolkit.cpp
+   │  └─ Validation/
+   │     ├─ BlueprintNamingRule.h
+   │     ├─ BlueprintNamingRule.cpp
+   │     └─ ValidationReportWriter.cpp
+   ├─ Public/
+   │  └─ Validation/
+   │     ├─ ValidationResult.h
+   │     ├─ ValidationRun.h
+   │     └─ ValidationReportWriter.h
    └─ ProductionPipelineToolkit.Build.cs
 ```
 
-Additional facts (not a redesign):
+Planned for V3.0-A:
 
-- `Resources/Icon128.png` is not present in the current repository
-- the plugin module is `Type: Runtime` / `LoadingPhase: Default` in `.uplugin`, with Editor module dependencies (`UnrealEd`, `LevelEditor`, `ToolMenus`)
-- `PipelineToolkit.uproject` does not list this plugin explicitly; it is discovered from the project `Plugins/` folder
-- continuity documents now live at the project root (`PROJECT_STATE.md` / `ARCHITECTURE.md` / `SESSION_LOG.md`) and are not Git-tracked yet
+```text
+ValidationConfig.h
+ValidationRunner.h
+ValidationRunner.cpp
+```
 
-## 7. Current Constraints
+These remain planned until Codex creates and verifies them.
 
-- Keep the project small and demonstrable.
+---
+
+## 4. Git / Repository State
+
+Current project facts:
+
+- GitHub repository exists
+- V2.0 is complete and has been synced to GitHub
+- the main branch was previously confirmed as `main` tracking `origin/main`
+- UE-generated artifacts remain excluded from source control
+- `Saved/ValidationReports/` is runtime output, not source
+
+Before Codex changes code, verify:
+
+```bash
+git status
+git log --oneline -5
+```
+
+Never infer build/commit/push state from documentation alone.
+
+---
+
+## 5. Engineering Constraints
+
+- Keep the project small, real, and demonstrable.
 - Prefer UE-native mechanisms.
-- Do not create a custom validation DSL.
-- Do not introduce a separate CLI process; use UE Editor Commandlet later.
-- Do not build dashboards/charts just for appearance.
-- Do not over-abstract before a real validation data path exists.
-- Explain important design decisions in terms of production value, not buzzwords.
+- Do not abstract without evidence.
+- Do not add `IRule`, `RuleManager`, `RuleFactory`, or a generic registry yet.
+- JSON is an output of `FValidationRun`, not a second validation model.
+- Auto-Fix/Revert remains an Editor workflow.
+- The first Commandlet validates only; it does not mutate assets.
+- Python is future orchestration/glue, not the rule layer.
+- Do not introduce a separate validation executable.
+- Do not add dashboards, large frameworks, or AI/RAG architecture for appearance.
+- Explain design choices through production problems, not buzzwords.
 
-## 8. Known Design Direction
+### Documentation Rule
 
-Initial rules should favor reliable and easy-to-demonstrate checks, such as:
+**All long-lived project documents must be maintained in both Chinese and English.**
 
-- naming/path rules
-- triangle-count limits
-- LOD presence / limits
-- texture resolution / size / mipmap-related checks
+Default shape:
 
-Material-complexity estimation is intentionally deferred because it can be misleading and is not necessary to prove the core architecture.
+```text
+# 中文版
+...
+# English Version
+...
+```
 
-Safe auto-fix should be limited to one or two reversible cases and use UE transaction/undo support.
+Responsibilities:
 
-## 9. Next Concrete Step
+- `README.md`: public / GitHub-facing overview
+- `PROJECT_STATE.md`: current verified truth
+- `ARCHITECTURE.md`: design rationale, boundaries, decisions
+- `SESSION_LOG.md`: append-oriented development history
+- `AGENTS.md`: repository-level Codex/agent rules and current work boundary
 
-Start V1 by implementing only the first conceptual slice:
+Do not record planned work as completed work.
 
-1. What an Unreal `Asset` is for this tool
-2. `Content Browser` asset vs `Level Actor`
-3. Why `Asset Registry` is the right discovery mechanism
-4. Minimal Rule / Evaluate / Result model
-5. Implement one real rule and display its result in the Editor
+---
 
-Ready point for this session: before the design discussion for steps 1–2; V1 code has not started.
+## 6. Current Codex Handoff
 
-Do not implement later pipeline layers until this data path works.
+First task:
+
+```text
+Refactor the existing Editor validation execution into a reusable
+FValidationRunner driven by FValidationConfig.
+```
+
+Scope:
+
+- move Asset Registry discovery out of Slate
+- move redirector filtering out of Slate
+- move `BlueprintNamingRule` evaluation out of Slate
+- move `FValidationRun` construction/summary out of Slate
+- keep Slate presentation
+- keep Fix/Revert in Editor UI
+- preserve JSON schema
+- do not implement Commandlet yet
+- do not introduce a Rule Framework
+
+Acceptance fixture:
+
+```text
+BP_PlayerTest → PASS
+Test_Player   → FAIL
+M_Test        → SKIP
+BP_EnemyTest  → PASS
+```
+
+Existing Editor behavior must remain unchanged.

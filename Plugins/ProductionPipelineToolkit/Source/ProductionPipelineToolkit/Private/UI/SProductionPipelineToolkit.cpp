@@ -217,38 +217,30 @@ FReply SProductionPipelineToolkit::OnScanClicked()
 
 	TArray<FAssetData> AssetDataList;
 
-	// const bool bSuccess = AssetRegistry.GetAssetsByPath(
-	// 	FName(*ScanPath),
-	// 	AssetDataList,
-	// 	true,   // Recursive
-	// 	true    // Include only on-disk assets
-	// );
 	const bool bSuccess = AssetRegistry.GetAssetsByPath(
 		FName(*ScanPath),
 		AssetDataList,
 		true,   // Recursive
 		true    // Include only on-disk assets
 	);
-
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("========== ProductionPipelineToolkit Scan ==========")
-	);
-
 	UE_LOG(
 		LogTemp,
 		Display,
 		TEXT("Scan Path: %s"),
 		*ScanPath
 	);
-
 	UE_LOG(
 		LogTemp,
 		Display,
 		TEXT("Found %d assets"),
 		AssetDataList.Num()
 	);
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT("========== ProductionPipelineToolkit Scan ==========")
+	);
+
 
 	// ------------------------------------------------------------
 	// 2. Handle Asset Registry failure
@@ -432,15 +424,6 @@ FReply SProductionPipelineToolkit::OnScanClicked()
 				*Result.RuleId.ToString(),
 				ResultStatusText
 			);
-
-			// ResultsContainer->AddSlot()
-			// .AutoHeight()
-			// .Padding(4.0f)
-			// [
-			// 	SNew(STextBlock)
-			// 	.Text(FText::FromString(RowText))
-			// ];
-			//const FString MessageText = Result.Message;
 
 			const FString MessageText =
 				Result.Message.IsEmpty()
@@ -630,14 +613,6 @@ FReply SProductionPipelineToolkit::OnAutoFixClicked(
             *NewAssetName
         );
 
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("Auto-Fix requested: %s -> %s"),
-		*SourceAssetPath,
-		*DestinationAssetPath
-	);
-
     UE_LOG(
         LogTemp,
         Display,
@@ -706,7 +681,6 @@ FReply SProductionPipelineToolkit::OnAutoFixClicked(
 		{
 			RevertFixButton->SetEnabled(true);
 		}
-		OnScanClicked();
 		SetStatus(
 			FText::FromString(TEXT("Status: Auto-Fix Complete"))
 		);

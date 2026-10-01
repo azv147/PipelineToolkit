@@ -1,609 +1,1150 @@
 # UE Production Pipeline Toolkit — 架构 / Architecture
 
-> 中文部分为项目协作的主要版本，用于讨论、纠错和架构校正。
-> English section is the GitHub-facing companion version.
-> 中文优先；英文完整追加于文档后半部分。
+> 本文记录长期架构护栏、边界和重要设计理由，不记录日常进度。
+> This document records durable architectural guardrails, boundaries, and design rationale rather than day-to-day progress.
+>
+> 最后更新 / Last updated: 2026-10-01
 
 ---
 
 # 中文版
 
-> 设计护栏与设计理由。本文回答“为什么”和“边界在哪里”，而不是记录完整实现。
-> 最后核对：2026-09-20。设计护栏未变；继续以已收敛架构为基线，不重新设计。
-
 ## 1. 架构意图
 
-这是一个小型 Unreal Editor 生产工具原型。架构需要体现生产工具工程判断力，但不能把作品集 Demo 变成一个“为了展示架构而存在的框架项目”。
+`PipelineToolkit` 是一个小型 Unreal Editor 生产工具原型。
 
-主要数据流：
+目标不是建立“最通用”的 Validation Framework，而是展示可解释的生产工具工程判断：
 
 ```text
 UE Asset / Project Data
         ↓
-   Rule Engine
+Asset Discovery
         ↓
-   Issue Model
+Validation Rule
         ↓
-Validation Result
+FValidationResult
         ↓
- Editor / Report
-        ↓
- Commandlet
-        ↓
- Python / CI Gate
+FValidationRun
+        ├── Editor UI
+        ├── JSON Report
+        └── Commandlet / Exit Code（V3）
 ```
 
-只有在真实用例需要时才扩展新的层。
+架构只在真实用例证明需要时扩展。
 
-## 2. 核心边界
+核心原则：
 
-### Validation Core
+> 非必要不抽象；让真实重复结构证明抽象边界。
 
-负责真正的验证语义：
+---
 
-- Rule 执行
-- Issue / Result 创建
-- 确定性的验证行为
+## 2. 核心职责边界
 
-不应依赖 Slate UI。
+### 2.1 Asset Discovery
 
-### Editor UI
+使用 Unreal Engine 原生 Asset Registry。
 
-负责展示与交互：
+```text
+Scope
+ ↓
+IAssetRegistry
+ ↓
+TArray<FAssetData>
+```
 
-- 触发验证
-- 展示结果
-- 在可行时定位 / 选中相关 Asset
-- 后期提供 Safe Fix
+理由：
 
-UI 应消费验证结果，而不是承载验证逻辑。
+- UE 已提供资产索引
+- `FAssetData` 适合元数据级检查
+- 避免为了验证而建立平行索引系统
+- 在能用元数据时不必加载每个 UObject
 
-### Asset Discovery
+### 2.2 Rule
 
-使用 Unreal 原生 Asset Registry 发现项目内容，不再发明一个平行的索引系统。
+Rule 负责真正的验证语义。
 
-重要概念区分：
+当前唯一真实 Rule：
 
-- Content Browser Asset = 项目 / Package 中的数据对象
-- Level Actor = World / Level 中的对象实例
+```text
+FBlueprintNamingRule
+```
 
-V1 首先关注 Asset。
+行为：
 
-### Automation Boundary
+```text
+Blueprint → check prefix
+non-Blueprint → SKIP
+```
 
-后期让同一套 Validation Core 可以由 Editor Commandlet 调用。
+当前不建立：
 
-优先使用 Commandlet，而不是独立可执行程序，因为 Unreal 本身已经是必要的执行环境。
+- `IRule`
+- `RuleManager`
+- `RuleFactory`
+- 通用 Rule Registry
 
-### CI Boundary
+只有第二、第三个真实 Rule 出现稳定重复形态后再重新评估。
 
-后期采用：
+### 2.3 `FValidationResult`
+
+单条验证结果应同时对人和自动化有意义。
+
+当前包含的核心语义：
+
+```text
+Asset
+Object Path
+Rule Id
+Status
+Message
+Auto-Fix metadata（存在时）
+```
+
+不要为了“未来可能有用”提前堆字段。
+
+### 2.4 `FValidationRun`
+
+一次 Validation 执行的共享状态：
+
+```text
+Scope
+Asset Count
+Results
+Passed Count
+Failed Count
+Skipped Count
+```
+
+它是 Editor / Report / Automation 共享的结果边界。
+
+不要为：
+
+- Slate
+- JSON
+- Commandlet
+
+分别建立互相重复的数据模型。
+
+### 2.5 Editor UI / Slate
+
+Slate 负责：
+
+- 获取用户输入
+- 触发 Validation
+- 展示 Summary / Results
+- Status
+- Fix / Revert
+- Editor-only interaction
+
+Slate 不应该负责：
+
+- Asset discovery 语义
+- Rule evaluation 语义
+- ValidationRun construction 语义
+
+目标 mental model：
+
+```text
+Widget = Input + Presentation + Editor Interaction
+Runner = Validation Execution
+Rule   = Validation Semantics
+Run    = Result State
+Writer = Serialization
+```
+
+---
+
+## 3. V3 Validation Execution Boundary
+
+V2 结束时，Result / Run / Writer 已经分离，但完整执行仍大部分位于：
+
+```text
+SProductionPipelineToolkit::OnScanClicked()
+```
+
+这会使 Commandlet 难以复用而不复制代码。
+
+### 3.1 `FValidationConfig`
+
+V3 第一版共享输入仅包含当前已证明需要共享的字段：
+
+```cpp
+struct FValidationConfig
+{
+    FString Scope;
+    FString BlueprintPrefix;
+};
+```
+
+当前不要加入：
+
+```text
+Recursive toggle
+OnDiskOnly toggle
+ReportPath
+AutoFix flag
+CI flag
+Platform policy
+```
+
+除非后续真实调用方确实需要改变它们。
+
+### 3.2 `FValidationRunner`
+
+第一版 Runner 是具体的 orchestration boundary，而不是通用 Framework。
+
+职责：
+
+```text
+validate FValidationConfig
+        ↓
+Asset Registry discovery
+        ↓
+filter Redirectors
+        ↓
+FBlueprintNamingRule::Evaluate()
+        ↓
+FValidationRun
+        ↓
+RecalculateSummary()
+```
+
+推荐的最小接口形态：
+
+```cpp
+static bool Run(
+    const FValidationConfig& Config,
+    FValidationRun& OutRun,
+    FString* OutErrorMessage = nullptr);
+```
+
+理由：
+
+- 能区分 Validation 执行失败与“成功执行但没有 Asset”
+- 与现有 `ValidationReportWriter` 的简单错误处理风格一致
+- 不需要提前创建复杂 Execution Result hierarchy
+
+### 3.3 先 Runner，后 Commandlet
+
+V3 的顺序必须是：
+
+```text
+Step 1
+Extract reusable Runner
+        ↓
+Step 2
+Editor still works exactly as before
+        ↓
+Step 3
+Verify baseline fixture
+        ↓
+Step 4
+Add Commandlet as second caller
+```
+
+不要把“重构 + Commandlet + CLI 参数 + JSON 改造 + CI”一次性完成。
+
+这样可以把：
+
+- Refactor regression
+- Headless behavior bug
+- CLI bug
+- CI bug
+
+分开定位。
+
+---
+
+## 4. Automation Boundary
+
+Runner 验证后，目标结构：
+
+```text
+Editor UI ─────┐
+               ├── FValidationRunner
+Commandlet ────┘
+                       ↓
+                FValidationRun
+                  ├── JSON
+                  └── Exit Code
+```
+
+Commandlet 第一版：
+
+```text
+Validate only
+Do not Auto-Fix
+Do not mutate assets
+```
+
+理由：
+
+- CI 应默认诊断而不是修改项目
+- Mutation 会引入 Source Control / Redirector / Asset lifecycle 复杂度
+- 第一目标是证明共享 Validation Semantics
+
+Python / CI 位于 Core 外部：
 
 ```text
 Python wrapper
     ↓
 UE Commandlet
     ↓
-JSON / exit code
+JSON / Exit Code
     ↓
-GitHub Actions
-```
-
-Python 是编排 / 胶水层，而不是业务规则的归属地。
-
-## 3. Rule Engine 决策
-
-### 使用 UE 原生的 Reflection / 轻量数据结构
-
-在确实有帮助时使用适当的 `USTRUCT`、`UCLASS`、`UPROPERTY`、Reflection 以及普通 C++ 类型，让 Editor / Config 等能力自然接入。
-
-### 不构建自定义 DSL
-
-原因：
-
-- 增加实现成本
-- 增加解析 / 测试复杂度
-- 对当前项目规模价值很低
-- 会把精力从真正的 Tool / Pipeline 工程问题上移开
-
-### 不提前构建 Registry Framework
-
-先用最小表示执行一个真实 Rule。只有当第二、第三个 Rule 证明某种抽象确实有价值时，才引入 Rule 注册 / 配置等机制。
-
-## 4. Validation Result / Issue Model
-
-一个 Rule 在概念上应该回答：
-
-```text
-Input asset
-   ↓
-Evaluate
-   ↓
-Pass / Fail / Warning
-   ↓
-Issue information
-```
-
-Result 应同时对人类和未来的自动化有用。至少能够识别：
-
-- Asset
-- Rule / Check identity
-- Severity 或 Pass/Fail 状态
-- 面向人的可读消息
-
-只有在真实用例出现时才添加额外元数据。
-
-## 5. Observability
-
-工具本身最终也应该是可观测的。
-
-初期可观测性：
-
-- 检查的 Asset 总数
-- Issue 数量
-- 整体扫描耗时
-- 必要时记录 Rule / Run 级别的耗时
-
-后期可以使用 SQLite 持久化。
-
-不要建立可视化平台。一个表格加可查询的历史记录已经足够支撑作品集目标。
-
-## 6. 增量验证方向
-
-保存时或 Editor 触发的验证不应从“每次变化都扫描整个项目”开始。
-
-推荐演进：
-
-```text
-当前 Level / Selected Scope
-        ↓
-Dirty / Changed Assets
-        ↓
-Targeted Validation
-```
-
-这样不需要真正做到生产规模，也可以展示性能意识和 Systems 思维。
-
-## 7. Safe Auto-Fix
-
-Auto-Fix 的优先级低于诊断。
-
-只有满足以下条件的修复才值得加入：
-
-- 确定性
-- 可逆
-- 低风险
-- 容易解释
-
-使用 UE Transaction / Undo 支持（在合适的位置使用 `FScopedTransaction`），保证 Editor 中可以安全演示。
-
-## 8. Configuration Strategy
-
-长期设计应把 **Policy** 与 **Execution** 分离。
-
-示意：
-
-```text
-Policy: PC
-Policy: Mobile
-Policy: Console
-        ↓
-Same validation engine
-        ↓
-Different thresholds / requirements
-```
-
-跨平台配置用于展示“策略与执行分离”的工程思维，而不是要求真正搭建多套平台流水线。
-
-## 9. DCC / Blender 集成
-
-DCC 集成属于后期扩展，不是 MVP 依赖。
-
-未来可能形成：
-
-```text
-DCC
- ↓
-Python precheck
- ↓
-Export
- ↓
-UE validation
- ↓
 CI
 ```
 
-即使没有 Blender，UE Validation Core 也必须独立有价值。
+Python 不承担 Rule 语义。
 
-## 10. AI 边界
+---
 
-AI 是可选增强层，不应成为项目基础。
+## 5. JSON Report Boundary
 
-未来可以考虑：
+JSON 是现有 `FValidationRun` 的序列化输出：
 
 ```text
-Natural-language request
-        ↓
-AI
-        ↓
-Tool API
-        ↓
-Rule / Validation system
+FValidationRun
+      ↓
+FValidationReportWriter
+      ↓
+JSON
 ```
 
-不要为了“证明 AI 能力”而加入 RAG / Agent 架构。
+它不是第二个 Validation Domain Model。
 
-## 11. 依赖方向
+V3 Runner 重构不得无故修改 JSON schema。
 
-推荐方向：
+只有 Commandlet / CI 的真实需要证明缺字段时才演进 schema。
+
+---
+
+## 6. Safe Auto-Fix / Revert Boundary
+
+Auto-Fix 的优先级低于诊断。
+
+当前已证明的 Fix：
 
 ```text
-UI
+Failed Blueprint Naming
+        ↓
+Suggested Asset Name
+        ↓
+UEditorAssetSubsystem::RenameAsset()
+```
+
+### 6.1 为什么不依赖 Ctrl+Z
+
+测试表明：
+
+```text
+RenameAsset()
+≠
+可以直接假设为普通 UObject Ctrl+Z Transaction
+```
+
+外层 `FScopedTransaction` 曾造成不稳定 / Crash。
+
+移除额外 transaction 后：
+
+- Crash 消失
+- Ctrl+Z 仍不能可靠撤销 Rename
+
+### 6.2 当前明确采用 Explicit Revert
+
+当前 Editor Workflow：
+
+```text
+Fix
  ↓
-Validation Core
+record Original Path
+record Fixed Path
  ↓
-UE data / Asset Registry
+Revert Last Fix
+ ↓
+RenameAsset(Fixed → Original)
 ```
 
-自动化同样应该调用同一份 Core，而不是复制业务逻辑：
+因此：
+
+- Explicit Revert 已经取代“依赖 Ctrl+Z”的方案
+- Revert 不是通用 Undo 系统
+- 当前不创建 Fix Framework
+- Runner / Commandlet 第一版不承担 Auto-Fix
+
+---
+
+## 7. UE Asset Boundary
+
+### Content Browser Asset vs Level Actor
+
+本项目验证的是 Project Asset，而不是 World 中的 Actor Instance。
 
 ```text
-Editor UI ─┐
-           ├→ Validation Core
-Commandlet ┘
+Content Browser Asset
+→ Asset Registry
+
+Level Actor
+→ World / Level instance
 ```
 
-Python / CI 保持在 Core 外部。
+因此 V1 从 Asset Registry 开始是正确边界。
 
-## 12. 明确的非目标
+### Package Path / Package Name / Object Path
 
-除非新的证据证明有必要，否则不要加入：
-
-- 自定义 DSL
-- 独立 Validation 可执行程序
-- 大型 Plugin Framework
-- 在真正需要之前堆叠 Factory / Strategy / Registry 层
-- Dashboard / 图表平台
-- 大型 AI / RAG 架构
-- 大型展示用游戏场景
-- 大量投机性的 Rule
-
-## 13. 决策记录格式
-
-当重要设计发生变化时，在这里添加一条轻量记录：
+必须区分：
 
 ```text
-### Decision: <topic>
-Status: Accepted | Superseded
-Date: YYYY-MM-DD
+Package Path
+/Game/ValidationTest
 
-Context:
-...
+Package Name
+/Game/ValidationTest/Test_Player
 
-Decision:
-...
-
-Reason:
-...
-
-Trade-off:
-...
+Object Path
+/Game/ValidationTest/Test_Player.Test_Player
 ```
 
-### Decision: 在已接受架构上继续，不重新设计
+Auto-Fix 曾因混淆这些语义构造错误 Rename 目标。
+
+### Redirector
+
+Asset Rename / Move 可能产生 Redirector。
+
+Validation 不能把 Redirector 当作普通业务 Asset。
+
+### 文件系统边界
+
+`.uasset` 不应在正在运行的 Editor Workflow 中被当作普通 Windows 文件直接删除 / 移动。
+
+正确做法优先通过：
+
+- Unreal Editor
+- Content Browser
+- UE Asset API
+
+---
+
+## 8. Module Boundary
+
+项目当前以 Editor Tool 为主。
+
+长期原则：
+
+```text
+Runtime must not depend on Editor
+```
+
+如果未来出现 Runtime 功能：
+
+```text
+Plugin
+├─ Runtime Module
+└─ Editor Module
+```
+
+Editor-only 依赖放 Editor Module。
+
+当前项目没有必要为了展示而提前拆出 Runtime Module。
+
+---
+
+## 9. Configuration Strategy
+
+长期设计倾向：
+
+```text
+Policy
+  ↓
+Same validation execution
+  ↓
+Different thresholds / requirements
+```
+
+但当前只有 Blueprint Prefix / Scope 已被实际证明。
+
+不要为了未来的 PC / Mobile / Console Policy 提前构建配置系统。
+
+---
+
+## 10. Observability Direction
+
+可观测性是后期增强层。
+
+优先级：
+
+```text
+asset count
+issue count
+run duration
+rule/run timing（有需要时）
+```
+
+SQLite / history / chart 不属于当前 V3 第一任务。
+
+---
+
+## 11. 文档与 Agent 协作边界
+
+长期文档职责：
+
+```text
+README.md
+→ public overview
+
+PROJECT_STATE.md
+→ current verified truth
+
+ARCHITECTURE.md
+→ rationale / boundaries / decisions
+
+SESSION_LOG.md
+→ chronological actual work
+
+AGENTS.md
+→ Codex execution guardrails
+```
+
+开发准则：
+
+> 所有长期项目文档必须维护中文 + English 双语版本。
+
+任何 Agent 都不得：
+
+- 把计划写成已完成
+- 根据文档推断 build / commit / push 成功
+- 在没有真实需求的情况下扩张架构
+
+---
+
+## 12. 明确非目标
+
+除非真实用例证明必要，否则不要加入：
+
+- 自定义 Validation DSL
+- 独立 Validation executable
+- 大型 Rule Framework
+- 大量 Factory / Strategy / Registry
+- Dashboard / chart platform
+- 大型 AI / RAG / Agent 架构
+- 大量投机性 Rule
+- 大型展示游戏场景
+- Commandlet 自动修改资产
+
+---
+
+## 13. 重要决策记录
+
+### Decision: Evidence-driven abstraction for rules
 Status: Accepted
-Date: 2026-09-20
+Date: 2026-09-23
 
-Context:
-新会话从 Desktop `AGENTS.md` 与既有连续性文件恢复。V0 Editor 集成已经验证。
+Context: 当前只有一个真实 `BlueprintNamingRule`。
 
-Decision:
-保持 V0–V4 方向，以及 Validation Core / Editor UI / Commandlet / CI 边界不变。不重新设计项目。
+Decision: 不创建 `IRule` / `RuleManager` / `RuleFactory` / 通用 Registry。
 
-Reason:
-没有新的证据要求换架构。下一步是 V1 真实数据流，从 Asset vs Level Actor 开始，而不是新框架。
+Reason: 尚无足够重复结构证明 Framework 的收益。
 
-Trade-off:
-V0 插件 Module 仍保持已交付的 `Type: Runtime`，直到出现真实的加载类型问题。V1 仍从一个真实 Rule 开始，而不是 Rule Registry。
+Trade-off: 等第二、第三个真实 Rule 出现后再重新评估。
+
+### Decision: `FValidationRun` is the V2 execution-state boundary
+Status: Accepted
+Date: 2026-09-23 → 2026-09-27
+
+Decision: 将 Scope / Results / Summary Counts 组织为一次完整 Run。
+
+Reason: UI / Report / Automation 需要共享同一执行状态。
+
+### Decision: JSON Report is an output boundary
+Status: Accepted
+Date: 2026-09-27
+
+Decision: 直接序列化 `FValidationRun`，不创建第二套 Report Domain Model。
+
+### Decision: Generic Ctrl+Z is not the Rename Auto-Fix contract
+Status: Accepted
+Date: 2026-09-27
+
+Decision: 不声称当前 Rename Auto-Fix 支持通用 Ctrl+Z。
+
+### Decision: Explicit Revert replaces the Ctrl+Z approach
+Status: Accepted
+Date: 2026-09-29
+
+Decision: 使用独立 `Revert Last Fix` 控件，通过保存前后 Asset Path 显式恢复前一个资产名。
+
+Reason: 比依赖不可靠 Transaction 行为更确定、更容易解释。
+
+Trade-off: 只恢复最后一次已记录 Rename，不是通用 Undo Stack。
+
+### Decision: Extract Validation Runner before adding Commandlet
+Status: Accepted
+Date: 2026-10-01
+
+Context: `OnScanClicked()` 仍混合 UI、Discovery、Rule Execution 与 Presentation。
+
+Decision: 先引入最小 `FValidationConfig + FValidationRunner`，验证 Editor 行为不变后，再让 Commandlet 成为第二调用方。
+
+Reason: 避免复制 Validation 逻辑，也让重构问题与 Headless 问题可分开定位。
+
+Trade-off: Commandlet 延后一个小切片，但 V3 的共享边界更清晰。
+
+### Decision: Long-lived project documents are bilingual
+Status: Accepted
+Date: 2026-10-01
+
+Decision: `README / PROJECT_STATE / ARCHITECTURE / SESSION_LOG / AGENTS` 均维护中文 + English。
+
+Reason: 中文用于学习和协作，英文用于 GitHub / 面试 / Agent handoff，并避免两套文档长期漂移。
 
 ---
 
 # English Version
 
-> Decision guardrails and design rationale. This file explains **why** and **where**, not the full implementation.
-> Last reviewed: 2026-09-20. Guardrails unchanged; continue from the accepted architecture without redesign.
-
 ## 1. Architectural Intent
 
-The project is a small Unreal Editor production-tool prototype. Its architecture should expose production-tool engineering judgment without turning the portfolio demo into a framework project.
+`PipelineToolkit` is a small Unreal Editor production-tool prototype.
 
-Primary flow:
+The goal is not to build the most generic validation framework. The architecture should demonstrate explainable production-tool engineering:
 
 ```text
 UE Asset / Project Data
         ↓
-   Rule Engine
+Asset Discovery
         ↓
-   Issue Model
+Validation Rule
         ↓
-Validation Result
+FValidationResult
         ↓
- Editor / Report
-        ↓
- Commandlet
-        ↓
- Python / CI Gate
+FValidationRun
+        ├── Editor UI
+        ├── JSON Report
+        └── Commandlet / Exit Code (V3)
 ```
 
-The layers should grow only when a real use case requires them.
+Extend the architecture only when a real use case proves the need.
 
-## 2. Core Boundaries
+Core principle:
 
-### Validation Core
+> Do not abstract without evidence; let repeated real structure prove the boundary.
 
-Owns the actual validation semantics:
+---
 
-- rule evaluation
-- issue/result creation
-- deterministic validation behavior
+## 2. Core Responsibility Boundaries
 
-Should not depend on Slate UI.
+### 2.1 Asset Discovery
 
-### Editor UI
+Use Unreal Engine's native Asset Registry:
 
-Owns presentation and interaction:
+```text
+Scope
+ ↓
+IAssetRegistry
+ ↓
+TArray<FAssetData>
+```
 
-- trigger validation
-- show results
-- locate/select relevant assets where practical
-- later expose safe fixes
+Reasons:
 
-The UI should consume validation results rather than contain validation logic.
+- UE already owns the asset index
+- `FAssetData` supports metadata-oriented validation
+- no parallel indexing system is needed
+- avoid loading every UObject when metadata is sufficient
 
-### Asset Discovery
+### 2.2 Rule
 
-Use Unreal's native Asset Registry for project-content discovery rather than inventing a parallel indexing system.
+Rules own validation semantics.
 
-Important conceptual distinction:
+Current real rule:
 
-- Content Browser asset = project/package data object
-- Level Actor = object instance in a world/level
+```text
+FBlueprintNamingRule
+```
 
-The first V1 implementation focuses on assets.
+Current behavior:
 
-### Automation Boundary
+```text
+Blueprint → check prefix
+non-Blueprint → SKIP
+```
 
-Later, the same validation core should be callable from an Editor Commandlet.
+Do not introduce yet:
 
-The Commandlet is preferred over a separate executable because Unreal is already the required execution environment.
+- `IRule`
+- `RuleManager`
+- `RuleFactory`
+- generic rule registry
 
-### CI Boundary
+Revisit only after multiple real rules reveal a stable common shape.
 
-Later:
+### 2.3 `FValidationResult`
+
+One result should be useful to both humans and automation.
+
+Current core semantics:
+
+```text
+Asset
+Object Path
+Rule Id
+Status
+Message
+Auto-Fix metadata (when applicable)
+```
+
+Do not add speculative metadata.
+
+### 2.4 `FValidationRun`
+
+A shared representation of one validation execution:
+
+```text
+Scope
+Asset Count
+Results
+Passed Count
+Failed Count
+Skipped Count
+```
+
+It is the shared output boundary for Editor, report, and automation.
+
+Do not create separate duplicate models for Slate, JSON, and Commandlet.
+
+### 2.5 Editor UI / Slate
+
+Slate owns:
+
+- user input
+- triggering validation
+- summary/result presentation
+- status
+- Fix/Revert
+- Editor-only interaction
+
+Slate should not own:
+
+- asset-discovery semantics
+- rule-evaluation semantics
+- ValidationRun-construction semantics
+
+Mental model:
+
+```text
+Widget = Input + Presentation + Editor Interaction
+Runner = Validation Execution
+Rule   = Validation Semantics
+Run    = Result State
+Writer = Serialization
+```
+
+---
+
+## 3. V3 Validation Execution Boundary
+
+At the end of V2, Result/Run/Writer are separated, but complete execution still largely lives in:
+
+```text
+SProductionPipelineToolkit::OnScanClicked()
+```
+
+That makes Commandlet reuse difficult without duplication.
+
+### 3.1 `FValidationConfig`
+
+The first shared input contains only fields already proven necessary:
+
+```cpp
+struct FValidationConfig
+{
+    FString Scope;
+    FString BlueprintPrefix;
+};
+```
+
+Do not prematurely add:
+
+```text
+Recursive toggle
+OnDiskOnly toggle
+ReportPath
+AutoFix flag
+CI flag
+Platform policy
+```
+
+### 3.2 `FValidationRunner`
+
+The first Runner is a concrete orchestration boundary, not a generic framework.
+
+Responsibilities:
+
+```text
+validate FValidationConfig
+        ↓
+Asset Registry discovery
+        ↓
+filter Redirectors
+        ↓
+FBlueprintNamingRule::Evaluate()
+        ↓
+FValidationRun
+        ↓
+RecalculateSummary()
+```
+
+Recommended minimal interface:
+
+```cpp
+static bool Run(
+    const FValidationConfig& Config,
+    FValidationRun& OutRun,
+    FString* OutErrorMessage = nullptr);
+```
+
+This distinguishes execution failure from a successful run containing zero assets without inventing a complex execution-result hierarchy.
+
+### 3.3 Runner before Commandlet
+
+Required V3 order:
+
+```text
+Step 1
+Extract reusable Runner
+        ↓
+Step 2
+Editor still works exactly as before
+        ↓
+Step 3
+Verify baseline fixture
+        ↓
+Step 4
+Add Commandlet as the second caller
+```
+
+Do not combine refactor, Commandlet, CLI parsing, JSON redesign, and CI in one change.
+
+---
+
+## 4. Automation Boundary
+
+After Runner verification:
+
+```text
+Editor UI ─────┐
+               ├── FValidationRunner
+Commandlet ────┘
+                       ↓
+                FValidationRun
+                  ├── JSON
+                  └── Exit Code
+```
+
+First Commandlet:
+
+```text
+Validate only
+Do not Auto-Fix
+Do not mutate assets
+```
+
+Reasons:
+
+- CI should diagnose by default rather than mutate
+- mutation adds source-control, redirector, and asset-lifecycle complexity
+- the first goal is shared validation semantics
+
+Python / CI remain outside the core:
 
 ```text
 Python wrapper
     ↓
 UE Commandlet
     ↓
-JSON / exit code
+JSON / Exit Code
     ↓
-GitHub Actions
-```
-
-Python is orchestration/glue, not the home of business rules.
-
-## 3. Rule Engine Decisions
-
-### Use UE-native reflection/lightweight data structures
-
-Use appropriate combinations of `USTRUCT`, `UCLASS`, `UPROPERTY`, reflection and ordinary C++ types where they genuinely help editor/configuration integration.
-
-### Do not build a custom DSL
-
-Reason:
-
-- adds implementation cost
-- adds parsing/testing complexity
-- provides little value for this scale
-- distracts from real tool/pipeline engineering
-
-### Do not build a registry framework prematurely
-
-Start with the smallest representation that can execute one real rule. Introduce rule registration/configuration only when a second or third rule proves that an abstraction is useful.
-
-## 4. Validation Result / Issue Model
-
-A rule should conceptually answer:
-
-```text
-Input asset
-   ↓
-Evaluate
-   ↓
-Pass / Fail / Warning
-   ↓
-Issue information
-```
-
-A result should be useful to both humans and later automation. At minimum, it should identify:
-
-- the asset
-- rule/check identity
-- severity or pass/fail state
-- human-readable message
-
-Additional metadata can be added when a real use case requires it.
-
-## 5. Observability
-
-The tool itself should eventually be observable.
-
-Initial observability:
-
-- total assets checked
-- issue counts
-- overall scan duration
-- per-rule/per-run timing when useful
-
-Persistence may later use SQLite.
-
-Do not build a visualization system. A table and queryable history are enough for the portfolio objective.
-
-## 6. Incremental Validation Direction
-
-A save-time or editor-triggered validation system should not start by rescanning the whole project on every change.
-
-Preferred evolution:
-
-```text
-Current level / selected scope
-        ↓
-Dirty / changed assets
-        ↓
-Targeted validation
-```
-
-This demonstrates performance and systems thinking without requiring a large production-scale implementation.
-
-## 7. Safe Auto-Fix
-
-Auto-fix is secondary to diagnosis.
-
-Only add fixes that are:
-
-- deterministic
-- reversible
-- low-risk
-- easy to explain
-
-Use UE transaction/undo support (`FScopedTransaction` where appropriate) so a fix can be demonstrated safely in the Editor.
-
-## 8. Configuration Strategy
-
-The long-term design should separate **policy** from **execution**.
-
-Example concept:
-
-```text
-Policy: PC
-Policy: Mobile
-Policy: Console
-        ↓
-Same validation engine
-        ↓
-Different thresholds / requirements
-```
-
-This cross-platform configuration is an engineering demonstration, not a requirement to build multiple platform pipelines.
-
-## 9. DCC / Blender Integration
-
-DCC integration is a later extension, not an MVP dependency.
-
-Possible later chain:
-
-```text
-DCC
- ↓
-Python precheck
- ↓
-Export
- ↓
-UE validation
- ↓
 CI
 ```
 
-The UE validation core must remain useful without Blender.
+Python does not own rule semantics.
 
-## 10. AI Boundary
+---
 
-AI is optional and must remain an enhancement layer rather than the project foundation.
+## 5. JSON Report Boundary
 
-A possible future interface is:
+JSON serializes the existing run:
 
 ```text
-Natural-language request
-        ↓
-AI
-        ↓
-Tool API
-        ↓
-Rule / Validation system
+FValidationRun
+      ↓
+FValidationReportWriter
+      ↓
+JSON
 ```
 
-Do not build RAG/agents merely to claim AI capability.
+It is not a second validation domain model.
 
-## 11. Dependency Direction
+The V3 Runner refactor must not change the JSON schema without a demonstrated automation requirement.
 
-Preferred dependency direction:
+---
+
+## 6. Safe Auto-Fix / Revert Boundary
+
+Diagnosis has higher priority than Auto-Fix.
+
+Proven fix:
 
 ```text
-UI
+Failed Blueprint Naming
+        ↓
+Suggested Asset Name
+        ↓
+UEditorAssetSubsystem::RenameAsset()
+```
+
+### 6.1 Why Ctrl+Z is not the contract
+
+Testing showed:
+
+```text
+RenameAsset()
+≠
+something that can simply be assumed to behave like a normal UObject transaction
+```
+
+An outer `FScopedTransaction` caused instability / crash.
+
+Removing it stopped the crash but did not provide reliable Ctrl+Z undo.
+
+### 6.2 Explicit Revert is the accepted design
+
+Current Editor workflow:
+
+```text
+Fix
  ↓
-Validation Core
+record Original Path
+record Fixed Path
  ↓
-UE data / Asset Registry
+Revert Last Fix
+ ↓
+RenameAsset(Fixed → Original)
 ```
 
-Automation should call the same core rather than duplicate business logic:
+Therefore:
+
+- Explicit Revert replaces the Ctrl+Z approach
+- Revert is not a generic Undo system
+- no generic Fix Framework is introduced
+- Runner / first Commandlet do not own Auto-Fix
+
+---
+
+## 7. UE Asset Boundary
+
+### Content Browser Asset vs Level Actor
+
+This project validates project assets, not actor instances in a World.
 
 ```text
-Editor UI ─┐
-           ├→ Validation Core
-Commandlet ┘
+Content Browser Asset
+→ Asset Registry
+
+Level Actor
+→ World / Level instance
 ```
 
-Python/CI stays outside the core.
+### Package Path / Package Name / Object Path
+
+Keep these distinct:
+
+```text
+Package Path
+/Game/ValidationTest
+
+Package Name
+/Game/ValidationTest/Test_Player
+
+Object Path
+/Game/ValidationTest/Test_Player.Test_Player
+```
+
+Confusing them caused a real Rename destination bug.
+
+### Redirector
+
+Asset Rename/Move may create redirectors.
+
+Redirectors should not be treated as normal business assets during validation.
+
+### Filesystem boundary
+
+Do not treat `.uasset` files as ordinary Windows files during an active Editor workflow.
+
+Prefer:
+
+- Unreal Editor
+- Content Browser
+- UE Asset APIs
+
+---
+
+## 8. Module Boundary
+
+The project is currently an Editor tool.
+
+Long-term rule:
+
+```text
+Runtime must not depend on Editor
+```
+
+If runtime functionality appears later:
+
+```text
+Plugin
+├─ Runtime Module
+└─ Editor Module
+```
+
+Do not split modules merely for appearance before a runtime use case exists.
+
+---
+
+## 9. Configuration Strategy
+
+Long-term direction:
+
+```text
+Policy
+  ↓
+Same validation execution
+  ↓
+Different thresholds / requirements
+```
+
+At present, only Scope and Blueprint Prefix are proven configuration inputs.
+
+Do not build a speculative platform-policy system yet.
+
+---
+
+## 10. Observability Direction
+
+Observability is a later enhancement.
+
+Priority order:
+
+```text
+asset count
+issue count
+run duration
+rule/run timing (when useful)
+```
+
+SQLite/history/charting are not part of the current V3 slice.
+
+---
+
+## 11. Documentation and Agent Boundary
+
+Long-lived documents:
+
+```text
+README.md
+→ public overview
+
+PROJECT_STATE.md
+→ current verified truth
+
+ARCHITECTURE.md
+→ rationale / boundaries / decisions
+
+SESSION_LOG.md
+→ chronological actual work
+
+AGENTS.md
+→ Codex execution guardrails
+```
+
+Development rule:
+
+> All long-lived project documents must be maintained in both Chinese and English.
+
+Agents must not:
+
+- record planned work as complete
+- infer build/commit/push success from docs
+- expand architecture without a real requirement
+
+---
 
 ## 12. Explicit Non-Goals
 
-Do not add these unless new evidence justifies them:
+Unless a real use case proves otherwise, do not add:
 
-- custom DSL
+- custom validation DSL
 - separate validation executable
-- large plugin framework
-- complex factory/strategy/registry layers before needed
+- large rule framework
+- broad Factory / Strategy / Registry layers
 - dashboard/charting platform
-- broad AI/RAG architecture
+- large AI/RAG/agent architecture
+- many speculative rules
 - large showcase game scene
-- large set of speculative rules
+- automatic asset mutation from the first Commandlet
 
-## 13. Decision Record Style
+---
 
-When a significant design choice changes, record a small entry here:
+## 13. Decision Records
 
-```text
-### Decision: <topic>
-Status: Accepted | Superseded
-Date: YYYY-MM-DD
-
-Context:
-...
-
-Decision:
-...
-
-Reason:
-...
-
-Trade-off:
-...
-```
-
-### Decision: Continue from accepted architecture
+### Decision: Evidence-driven abstraction for rules
 Status: Accepted
-Date: 2026-09-20
+Date: 2026-09-23
 
-Context:
-New session started from Desktop `AGENTS.md` and existing continuity files. V0 Editor integration is already verified.
+Decision: Do not add `IRule`, `RuleManager`, `RuleFactory`, or a generic registry with only one real rule.
 
-Decision:
-Keep the V0–V4 direction and Validation Core / Editor UI / Commandlet / CI boundaries unchanged. Do not redesign the project.
+### Decision: `FValidationRun` is the V2 execution-state boundary
+Status: Accepted
+Date: 2026-09-23 → 2026-09-27
 
-Reason:
-No new evidence requires a different architecture. The next work is V1’s real data path, starting with Asset vs Level Actor, not a new framework.
+Decision: One run owns scope, results, and summary counts so UI/report/automation can share the same state.
 
-Trade-off:
-The V0 plugin module remains `Type: Runtime` as shipped until a real loading-type problem appears. V1 still starts with one real rule rather than a rule registry.
+### Decision: JSON Report is an output boundary
+Status: Accepted
+Date: 2026-09-27
+
+Decision: Serialize `FValidationRun`; do not create a second report-domain model.
+
+### Decision: Generic Ctrl+Z is not the Rename Auto-Fix contract
+Status: Accepted
+Date: 2026-09-27
+
+Decision: Do not claim generic Ctrl+Z support for Rename Auto-Fix.
+
+### Decision: Explicit Revert replaces the Ctrl+Z approach
+Status: Accepted
+Date: 2026-09-29
+
+Decision: Use a dedicated `Revert Last Fix` control and stored asset paths to rename the asset explicitly back to its previous name.
+
+Reason: This is deterministic and easier to explain than relying on fragile transaction behavior.
+
+Trade-off: It restores the recorded last Rename; it is not a generic Undo stack.
+
+### Decision: Extract Validation Runner before adding Commandlet
+Status: Accepted
+Date: 2026-10-01
+
+Context: `OnScanClicked()` still mixes UI, discovery, rule execution, and presentation.
+
+Decision: Introduce the minimal `FValidationConfig + FValidationRunner` first, verify unchanged Editor behavior, then add Commandlet as the second caller.
+
+Reason: Prevent duplicated validation logic and isolate refactor regressions from headless-execution issues.
+
+### Decision: Long-lived project documents are bilingual
+Status: Accepted
+Date: 2026-10-01
+
+Decision: Maintain `README / PROJECT_STATE / ARCHITECTURE / SESSION_LOG / AGENTS` in Chinese and English.
+
+Reason: Chinese supports learning/collaboration; English supports GitHub/interviews/agent handoff without allowing separate documents to drift.
