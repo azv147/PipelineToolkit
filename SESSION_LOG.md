@@ -729,6 +729,24 @@ BP_EnemyTest  → PASS
 
 ---
 
+## 2026-10-01 — V3.0-A Runner 实现与自动化验证
+
+- 新增最小 `FValidationConfig`、`FValidationRunner`，将扫描、规则执行、Run 构造、汇总及执行日志移出 Slate；Fix/Revert 和 JSON Writer 保持原实现。插件模块类型改为 `Editor`。
+- 新增 UE 原生只读测试 `PipelineToolkit.Validation.Runner`，直接验证真实 Fixture，避免把静态推断当成运行结果；未实现项目 Commandlet。
+- Editor 构建成功；自动化进程退出码 0，报告 1 项成功 / 0 错误 / 0 警告。默认结果为 4 项、PASS 2 / FAIL 1 / SKIP 1；前缀配置、去空白、重复调用、失败状态清理及可选错误输出通过。
+- 初次沙箱内构建退出码 1，未给出完整诊断；获批后在沙箱外构建成功。UE 自动化启动阶段有测试开始前的 `LogAutomationTest: Error: Condition failed`，来源未定位，不声称整个启动日志无错误。
+- 报告：`Saved/Automation/V3Runner/index.json`；日志：`Saved/Logs/V3RunnerAutomation.log`。运行产物不提交。
+- 待完成：Editor Summary/Rows、Fix/Revert、UI JSON 导出和旧结果清理人工验收。V3.0-B 尚未开始；未 commit / push。
+
+实际成功执行的命令（PowerShell）：
+
+```powershell
+& 'D:/Epic Games/UE_5.8/Engine/Build/BatchFiles/Build.bat' PipelineToolkitEditor Win64 Development '-Project=D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject' -WaitMutex -NoHotReloadFromIDE
+& 'D:/Epic Games/UE_5.8/Engine/Binaries/Win64/UnrealEditor-Cmd.exe' 'D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject' -unattended -NullRHI -nosplash '-ExecCmds=Automation RunTests PipelineToolkit.Validation.Runner' '-TestExit=Automation Test Queue Empty' '-ReportExportPath=D:/Epic Games/UEProjects/PipelineToolkit/Saved/Automation/V3Runner' '-abslog=D:/Epic Games/UEProjects/PipelineToolkit/Saved/Logs/V3RunnerAutomation.log' -stdout -FullStdOutLogOutput
+```
+
+---
+
 # English Version
 > Chronological development record. Keep this file append-oriented; summarize older history rather than rewriting it into project state.
 
@@ -1407,3 +1425,21 @@ Before making claims about build state, verify with the actual project (`git sta
 
 - Removed outdated records and references to documents outside the project as requested, corrected source paths, and added the V1 Chinese handoff entry with its English translation.
 - Completed static documentation checks; C++ and module configuration were unchanged. No build or Editor verification was run. V3.0-A still requires implementation and verification.
+
+---
+
+## 2026-10-01 — V3.0-A Runner Implementation and Automation Verification
+
+- Added minimal `FValidationConfig` and `FValidationRunner`; moved scanning, rule execution, run construction, summary, and execution logs out of Slate. Fix/Revert and JSON Writer retain their implementation. Changed the plugin module type to `Editor`.
+- Added the native read-only `PipelineToolkit.Validation.Runner` test against the real fixture, providing runtime evidence rather than static inference. No project Commandlet was implemented.
+- Editor build succeeded. The automation process exited with code 0; the report contains 1 successful test / 0 errors / 0 warnings. Default results were 4 assets, PASS 2 / FAIL 1 / SKIP 1. Prefix configuration, trimming, repeated calls, failure-state clearing, and optional error output passed.
+- The first sandboxed build exited with code 1 without full diagnostics; the approved build outside the sandbox succeeded. UE automation initialization emitted `LogAutomationTest: Error: Condition failed` before the test started; the source is unresolved. The entire startup log is not claimed to be error-free.
+- Report: `Saved/Automation/V3Runner/index.json`; log: `Saved/Logs/V3RunnerAutomation.log`. Runtime artifacts are not committed.
+- Remaining: manual Editor acceptance for Summary/Rows, Fix/Revert, UI JSON export, and stale-result clearing. V3.0-B has not started. No commit / push was performed.
+
+Commands actually completed successfully (PowerShell):
+
+```powershell
+& 'D:/Epic Games/UE_5.8/Engine/Build/BatchFiles/Build.bat' PipelineToolkitEditor Win64 Development '-Project=D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject' -WaitMutex -NoHotReloadFromIDE
+& 'D:/Epic Games/UE_5.8/Engine/Binaries/Win64/UnrealEditor-Cmd.exe' 'D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject' -unattended -NullRHI -nosplash '-ExecCmds=Automation RunTests PipelineToolkit.Validation.Runner' '-TestExit=Automation Test Queue Empty' '-ReportExportPath=D:/Epic Games/UEProjects/PipelineToolkit/Saved/Automation/V3Runner' '-abslog=D:/Epic Games/UEProjects/PipelineToolkit/Saved/Logs/V3RunnerAutomation.log' -stdout -FullStdOutLogOutput
+```

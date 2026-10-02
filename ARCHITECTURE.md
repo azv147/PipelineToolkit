@@ -191,6 +191,8 @@ Platform policy
 
 ### 3.2 `FValidationRunner`
 
+V3.0-A 已实现这一边界：Slate 调用 Runner，执行日志由 Runner 输出；Fix/Revert 与导出触发仍留在 UI。每次调用清空 `OutRun` 和可选错误输出；`false` 表示执行失败，规则 FAIL 仍属于成功执行。保留递归、仅磁盘资产查询与原有输入校验顺序。
+
 第一版 Runner 是具体的 orchestration boundary，而不是通用 Framework。
 
 职责：
@@ -426,6 +428,8 @@ Validation 不能把 Redirector 当作普通业务 Asset。
 ---
 
 ## 8. Module Boundary
+
+V3.0-A 将 `ProductionPipelineToolkit.uplugin` 的模块类型修正为 `Editor`，与 `UnrealEd` 等 Editor-only 依赖一致。Runner 可供未来 UE Editor Commandlet 复用，但当前不作为游戏 Runtime 代码。
 
 项目当前以 Editor Tool 为主。
 
@@ -775,6 +779,8 @@ Platform policy
 
 ### 3.2 `FValidationRunner`
 
+V3.0-A implements this boundary: Slate calls the Runner, which owns execution logs; Fix/Revert and export triggers remain UI-side. Each call clears `OutRun` and optional error output. `false` means execution failure; rule FAIL results still belong to a successful execution. Recursive, on-disk-only queries and the existing input-validation order are preserved.
+
 The first Runner is a concrete orchestration boundary, not a generic framework.
 
 Responsibilities:
@@ -990,6 +996,8 @@ Prefer:
 ---
 
 ## 8. Module Boundary
+
+V3.0-A corrects the module type in `ProductionPipelineToolkit.uplugin` to `Editor`, matching dependencies such as `UnrealEd`. The Runner can serve a future UE Editor Commandlet, but is currently not game Runtime code.
 
 The project is currently an Editor tool.
 

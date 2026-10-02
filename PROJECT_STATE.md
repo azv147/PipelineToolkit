@@ -182,19 +182,15 @@ Commandlet ────┘
 
 #### V3.0-A — 当前开发切片：Validation Runner Refactor
 
-当前代码审查确认：
+已实现 `FValidationConfig + FValidationRunner`，`OnScanClicked()` 只读取输入、调用 Runner 和刷新展示。
 
-`SProductionPipelineToolkit::OnScanClicked()` 仍同时承担：
+- UE 5.8.2 `PipelineToolkitEditor Win64 Development` 构建成功。
+- 插件已在无渲染 Editor 自动化进程中加载。
+- `PipelineToolkit.Validation.Runner` 原生 Automation 测试成功：真实 Fixture 为 4 项 / PASS 2 / FAIL 1 / SKIP 1；同时验证输入去空白、可配置前缀、重复执行替换结果、失败清空状态与可选错误输出。
+- 测试报告：`Saved/Automation/V3Runner/index.json`；日志：`Saved/Logs/V3RunnerAutomation.log`。UE 初始化时出现测试开始前的 `LogAutomationTest: Error: Condition failed`，来源未定位；本次 Runner 测试报告为 0 错误 / 0 警告。
+- Slate 界面、Fix/Revert 与 UI JSON 导出尚待人工验证；V3.0-A 尚未完成全部验收，不进入 V3.0-B。
 
-- UI input
-- Asset Registry discovery
-- Redirector filtering
-- Rule evaluation
-- `FValidationRun` construction
-- Summary calculation
-- Slate presentation
-
-当前第一任务是新增最小共享边界：
+当前共享边界：
 
 ```text
 FValidationConfig
@@ -260,27 +256,24 @@ Plugins/ProductionPipelineToolkit/
    │  ├─ ProductionPipelineToolkit.cpp
    │  ├─ UI/
    │  │  └─ SProductionPipelineToolkit.cpp
+   │  ├─ Tests/
+   │  │  └─ ValidationRunnerTests.cpp
    │  └─ Validation/
    │     ├─ BlueprintNamingRule.h
    │     ├─ BlueprintNamingRule.cpp
+   │     ├─ ValidationRunner.cpp
    │     └─ ValidationReportWriter.cpp
    ├─ Public/
    │  └─ Validation/
+   │     ├─ ValidationConfig.h
+   │     ├─ ValidationRunner.h
    │     ├─ ValidationResult.h
    │     ├─ ValidationRun.h
    │     └─ ValidationReportWriter.h
    └─ ProductionPipelineToolkit.Build.cs
 ```
 
-V3.0-A 计划新增：
-
-```text
-ValidationConfig.h
-ValidationRunner.h
-ValidationRunner.cpp
-```
-
-这些文件在 Codex 实际创建并验证前，仍属于“计划”，不是“已实现”。
+插件模块已声明为 `Editor`，保留 Editor API 依赖；未增加 Runtime 模块。
 
 ---
 
@@ -346,7 +339,7 @@ git log --oneline -5
 
 ## 6. Codex 当前交接任务
 
-Codex 第一任务：
+已实现的切片目标（仍待 Editor 人工验收）：
 
 ```text
 Refactor the existing Editor validation execution into a reusable
@@ -375,6 +368,8 @@ BP_EnemyTest  → PASS
 ```
 
 且 Editor UI 的现有行为保持一致。
+
+下一步人工验收：默认 Scope `/Game/ValidationTest`、Prefix `BP_` 扫描并检查 Summary / Result Rows；Fix `Test_Player` 后检查更名及重新扫描；Revert 后恢复基线；导出 JSON 检查 `schema_version = 1` 和结果字段；空白 Scope / Prefix 后确认旧结果清空。完成后才能进入 Commandlet。
 
 ---
 
@@ -537,9 +532,15 @@ The current first step is **not** Commandlet implementation.
 
 #### V3.0-A — current slice: Validation Runner Refactor
 
-Current code review shows that `SProductionPipelineToolkit::OnScanClicked()` still owns both UI and reusable validation execution.
+`FValidationConfig + FValidationRunner` are implemented. `OnScanClicked()` now only reads input, calls the Runner, and refreshes presentation.
 
-The first task is to introduce the smallest shared boundary:
+- UE 5.8.2 `PipelineToolkitEditor Win64 Development` build succeeded.
+- The plugin loaded in the Editor automation process with rendering disabled.
+- The native `PipelineToolkit.Validation.Runner` Automation test passed: the real fixture produced 4 results / PASS 2 / FAIL 1 / SKIP 1. It also verified trimming, configurable prefixes, replacement of results on repeated calls, state clearing on failure, and optional error output.
+- Report: `Saved/Automation/V3Runner/index.json`; log: `Saved/Logs/V3RunnerAutomation.log`. UE initialization emitted `LogAutomationTest: Error: Condition failed` before the test started; the source is unresolved. The Runner test report contains 0 errors / 0 warnings.
+- Slate presentation, Fix/Revert, and UI JSON export still require manual verification. Full V3.0-A acceptance is pending; do not start V3.0-B yet.
+
+Current shared boundary:
 
 ```text
 FValidationConfig
@@ -602,27 +603,24 @@ Plugins/ProductionPipelineToolkit/
    │  ├─ ProductionPipelineToolkit.cpp
    │  ├─ UI/
    │  │  └─ SProductionPipelineToolkit.cpp
+   │  ├─ Tests/
+   │  │  └─ ValidationRunnerTests.cpp
    │  └─ Validation/
    │     ├─ BlueprintNamingRule.h
    │     ├─ BlueprintNamingRule.cpp
+   │     ├─ ValidationRunner.cpp
    │     └─ ValidationReportWriter.cpp
    ├─ Public/
    │  └─ Validation/
+   │     ├─ ValidationConfig.h
+   │     ├─ ValidationRunner.h
    │     ├─ ValidationResult.h
    │     ├─ ValidationRun.h
    │     └─ ValidationReportWriter.h
    └─ ProductionPipelineToolkit.Build.cs
 ```
 
-Planned for V3.0-A:
-
-```text
-ValidationConfig.h
-ValidationRunner.h
-ValidationRunner.cpp
-```
-
-These remain planned until Codex creates and verifies them.
+The plugin module is now declared as `Editor`, retaining its Editor API dependencies. No Runtime module was added.
 
 ---
 
@@ -688,7 +686,7 @@ Do not record planned work as completed work.
 
 ## 6. Current Codex Handoff
 
-First task:
+Implemented slice objective (manual Editor acceptance is still pending):
 
 ```text
 Refactor the existing Editor validation execution into a reusable
@@ -717,3 +715,5 @@ BP_EnemyTest  → PASS
 ```
 
 Existing Editor behavior must remain unchanged.
+
+Next manual checks: scan Scope `/Game/ValidationTest` with Prefix `BP_` and inspect Summary / Result Rows; Fix `Test_Player` and check the rename and refreshed scan; Revert and confirm the baseline; export JSON and check `schema_version = 1` and result fields; submit blank Scope / Prefix and confirm stale results are cleared. Complete these before starting Commandlet.

@@ -41,7 +41,7 @@ V2 已完成并同步 GitHub。
 - explicit `Revert Last Fix`
 - JSON Validation Report
 
-当前 V3 第一任务不是直接实现 Commandlet，而是先把 Validation Execution 从 Slate 中抽离：
+V3.0-A 已将 Validation Execution 从 Slate 中抽离，Editor 构建与真实 Fixture 原生 Automation 测试通过。Editor 界面、Fix/Revert 与 UI JSON 导出仍待人工验收：
 
 ```text
 Editor UI
@@ -131,7 +131,7 @@ Implemented:
 - explicit `Revert Last Fix`
 - JSON Validation Report
 
-The first V3 task is not Commandlet implementation. It first separates reusable validation execution from Slate:
+V3.0-A separates reusable validation execution from Slate. The Editor build and native Automation test against the real fixture passed. Editor presentation, Fix/Revert, and UI JSON export still require manual acceptance:
 
 ```text
 Editor UI

@@ -4,19 +4,15 @@
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SEditableTextBox.h"
-#include "AssetRegistry/AssetRegistryModule.h"
-#include "AssetRegistry/AssetData.h"
-#include "Engine/Blueprint.h"
 #include "Editor.h"
 #include "Subsystems/EditorAssetSubsystem.h"
 // #include "ScopedTransaction.h"
 #include "Misc/PackageName.h"
-#include "UObject/ObjectRedirector.h"
 #include "Misc/Paths.h"
 
 #include "Validation/ValidationResult.h"
-#include "Validation/BlueprintNamingRule.h"
 #include "Validation/ValidationReportWriter.h"
+#include "Validation/ValidationRunner.h"
 
 void SProductionPipelineToolkit::Construct(
 	const FArguments& InArgs)
@@ -176,199 +172,22 @@ void SProductionPipelineToolkit::Construct(
 FReply SProductionPipelineToolkit::OnScanClicked()
 {
 	SetStatus(FText::FromString(TEXT("Status: Scanning...")));
-	FString ScanPath = TEXT("/Game/ValidationTest");
-	if (ScanScopeTextBox.IsValid())
-	{
-		ScanPath = ScanScopeTextBox->GetText().ToString();
-	}
-	ScanPath.TrimStartAndEndInline();
 
-	// ------------------------------------------------------------
-	// 1. Update UI state
-	// ------------------------------------------------------------
+	FValidationConfig Config;
+	Config.Scope = ScanScopeTextBox.IsValid()
+		? ScanScopeTextBox->GetText().ToString()
+		: TEXT("/Game/ValidationTest");
+	Config.BlueprintPrefix = BlueprintPrefixTextBox.IsValid()
+		? BlueprintPrefixTextBox->GetText().ToString()
+		: TEXT("BP_");
 
-	if (StatusText.IsValid())
-	{
-		StatusText->SetText(
-			FText::FromString(TEXT("Scanning..."))
-		);
-	}
-	if (ScanPath.IsEmpty())
+	FString ErrorMessage;
+	if (!FValidationRunner::Run(Config, ValidationRun, &ErrorMessage))
 	{
 		ClearValidationPresentation();
-		SetStatus(
-			FText::FromString(TEXT("Status: Invalid Scan Scope"))
-		);
-
-		UE_LOG(
-			LogTemp,
-			Warning,
-			TEXT("Scan scope is empty.")
-		);
+		SetStatus(FText::FromString(TEXT("Status: ") + ErrorMessage));
 		return FReply::Handled();
 	}
-
-	FAssetRegistryModule& AssetRegistryModule =
-		FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-
-	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
-
-	AssetRegistry.WaitForCompletion();
-
-	TArray<FAssetData> AssetDataList;
-
-	const bool bSuccess = AssetRegistry.GetAssetsByPath(
-		FName(*ScanPath),
-		AssetDataList,
-		true,   // Recursive
-		true    // Include only on-disk assets
-	);
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("Scan Path: %s"),
-		*ScanPath
-	);
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("Found %d assets"),
-		AssetDataList.Num()
-	);
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("========== ProductionPipelineToolkit Scan ==========")
-	);
-
-
-	// ------------------------------------------------------------
-	// 2. Handle Asset Registry failure
-	// ------------------------------------------------------------
-
-	if (!bSuccess)
-	{
-		ClearValidationPresentation();
-
-		UE_LOG(
-			LogTemp,
-			Warning,
-			TEXT("Asset Registry query failed.")
-		);
-
-		if (StatusText.IsValid())
-		{
-			StatusText->SetText(
-				FText::FromString(TEXT("Scan Failed"))
-			);
-			SetStatus(
-				FText::FromString(TEXT("Status: Scan Failed"))
-			);
-		}
-		return FReply::Handled();
-	}
-
-	ValidationRun = FValidationRun{};
-	ValidationRun.Scope = ScanPath;
-
-	FString BlueprintPrefix = TEXT("BP_");
-
-		if (BlueprintPrefixTextBox.IsValid())
-		{
-			BlueprintPrefix =
-				BlueprintPrefixTextBox->GetText().ToString();
-		}
-
-		BlueprintPrefix.TrimStartAndEndInline();
-
-		if (BlueprintPrefix.IsEmpty())
-		{
-			ClearValidationPresentation();
-
-			SetStatus(
-				FText::FromString(
-					TEXT("Status: Invalid Rule Configuration")
-				)
-			);
-
-			UE_LOG(
-				LogTemp,
-				Warning,
-				TEXT("Blueprint naming prefix is empty.")
-			);
-
-			return FReply::Handled();
-		}
-
-	// ------------------------------------------------------------
-	// 3. Start a new Validation Run
-	// ------------------------------------------------------------
-
-
-	ValidationRun.Results.Reserve(AssetDataList.Num());
-
-	// ------------------------------------------------------------
-	// 4. Evaluate every asset
-	// ------------------------------------------------------------
-
-	for (const FAssetData& AssetData : AssetDataList)
-	{
-		const bool bIsRedirector =
-			AssetData.AssetClassPath ==
-			UObjectRedirector::StaticClass()->GetClassPathName();
-
-		if (bIsRedirector)
-		{
-			continue;
-		}
-
-		// const FValidationResult Result =
-		// 	FBlueprintNamingRule::Evaluate(AssetData);
-		const FValidationResult Result =
-		FBlueprintNamingRule::Evaluate(
-			AssetData,
-			BlueprintPrefix
-		);	
-
-		ValidationRun.Results.Add(Result);
-
-		const TCHAR* ResultStatusText = TEXT("UNKNOWN");
-
-		switch (Result.Status)
-		{
-		case EValidationStatus::Passed:
-			ResultStatusText = TEXT("PASS");
-			break;
-
-		case EValidationStatus::Failed:
-			ResultStatusText = TEXT("FAIL");
-			break;
-
-		case EValidationStatus::Skipped:
-			ResultStatusText = TEXT("SKIP");
-			break;
-
-		default:
-			break;
-		}
-
-		UE_LOG(
-			LogTemp,
-			Display,
-			TEXT("[%s] Rule=%s | Asset=%s | Message=%s"),
-			ResultStatusText,
-			*Result.RuleId.ToString(),
-			*Result.AssetName.ToString(),
-			*Result.Message
-		);
-
-	}
-
-	// ------------------------------------------------------------
-	// 5. Calculate Validation Run summary
-	// ------------------------------------------------------------
-
-	ValidationRun.RecalculateSummary();
 
 	if (SummaryText.IsValid())
 	{
@@ -389,7 +208,7 @@ FReply SProductionPipelineToolkit::OnScanClicked()
 	}
 
 	// ------------------------------------------------------------
-	// 6. Refresh Slate result list
+	// Refresh Slate result list
 	// ------------------------------------------------------------
 
 	if (ResultsContainer.IsValid())
@@ -474,53 +293,7 @@ FReply SProductionPipelineToolkit::OnScanClicked()
 		}
 	}
 
-	// ------------------------------------------------------------
-	// 7. Log Validation Run summary
-	// ------------------------------------------------------------
-
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("Validation Run Summary:")
-	);
-
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("Scope=%s | Assets=%d | Passed=%d | Failed=%d | Skipped=%d"),
-		*ValidationRun.Scope,
-		ValidationRun.AssetCount,
-		ValidationRun.PassedCount,
-		ValidationRun.FailedCount,
-		ValidationRun.SkippedCount
-	);
-
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("Validation Results: %d"),
-		ValidationRun.Results.Num()
-	);
-
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("====================================================")
-	);
-
-	// ------------------------------------------------------------
-	// 8. Update UI state
-	// ------------------------------------------------------------
-
-	if (StatusText.IsValid())
-	{
-		StatusText->SetText(
-			FText::FromString(TEXT("Scan Complete"))
-		);
-		SetStatus(
-			FText::FromString(TEXT("Status: Scan Complete"))
-		);
-	}
+	SetStatus(FText::FromString(TEXT("Status: Scan Complete")));
 
 	return FReply::Handled();
 }
