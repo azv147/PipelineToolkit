@@ -747,6 +747,39 @@ BP_EnemyTest  → PASS
 
 ---
 
+## 2026-10-02 — V3.0-A 人工验收完成 / V3.0-B 准备
+
+- 用户确认人工功能验证与代码评审完成；据此关闭 V3.0-A，更新当前状态、README 与 Agent 任务边界。确认来源为用户，本次未重跑 Editor、构建或 Automation；旧日志保留为当时状态。
+- 实际 Git 检查显示工作区开始时干净，HEAD 为 `f8291a6 refactor(validation): extract Reusable Validation Runner`；只确认本地提交，不推断远程 push。
+- 准备 V3.0-B：单个只读 Commandlet 复用 Runner / Writer，参数 Scope / BlueprintPrefix / ReportPath，退出码 0 / 1 / 2；补齐实施与验收合同，但未新增 Commandlet 源码。
+- 文档检查：`git diff --check`、双语结构与阶段状态一致性检查。未修改代码或资产，未 commit / push。
+- 未完成：V3.0-B 实现、真实无 UI 运行、JSON / 退出码验证及 Editor 回归。此前启动 `Condition failed` 来源仍未定位，不声明已修复。
+
+---
+
+## 2026-10-02 — V3.0-B Commandlet 实现与进程验证
+
+- 新增 `UValidateAssetsCommandlet`，复用 Runner / Writer；原生解析 CLI 参数，处理项目相对报告路径与 0/1/2 退出码。模块仅在 Commandlet 模式跳过 Tab / ToolMenus 注册和清理；未修改 Slate、Runner、Rule 或 Writer。
+- 实际 Editor 构建成功。9 个实际进程用例通过：Default=1、Passing=0、Prefix=1、BlankScope=2、BlankPrefix=2、BlankReport=2、WriteFailure=2、MissingValue=2、EmptyQuery=0。默认 schema 1 / 4 项 / PASS 2 / FAIL 1 / SKIP 1；验证完整资产状态、建议名称、带空格相对路径、绝对路径及失败诊断。
+- 普通 Editor 启动下重跑 `PipelineToolkit.Validation.Runner`：进程 0，1 项成功 / 0 错误 / 0 警告。初始化仍有测试开始前的 `Condition failed`，未定位，未掩盖或宣称已修复。
+- 全部 `.uasset` SHA-256 与运行前一致，数量不变。运行证据保存在 `Saved/Automation/V3Commandlet/`：`Results.json` 记录全部真实进程参数与退出码，`Build.log`、各场景日志、`AssetsBefore.json`、`EditorRegression/index.json` 记录验证证据。运行产物不提交。
+- 构建命令：`Build.bat PipelineToolkitEditor Win64 Development -Project="D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject" -WaitMutex -NoHotReloadFromIDE`。
+- CLI 基础命令：`UnrealEditor-Cmd.exe "D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject" -run=ValidateAssets -unattended -NullRHI -nosplash -nosound -NoShaderCompile -nop4`；每个场景的附加参数与日志目标见 `Results.json`。
+- Editor 回归命令使用 `-ExecCmds="Automation RunTests PipelineToolkit.Validation.Runner" -TestExit="Automation Test Queue Empty" -ReportExportPath="D:/Epic Games/UEProjects/PipelineToolkit/Saved/Automation/V3Commandlet/EditorRegression"`，不带 `-run`。
+- 文档及静态检查：`git diff --check`、双语一致性、既有执行代码未修改检查。未 commit / push。待完成本切片 Editor UI Scan / Fix / Revert / JSON 人工回归，不进入 Python / CI。
+
+---
+
+## 2026-10-03 — V3.0-B 验收关闭 / V3.1 准备
+
+- 用户明确确认验收完毕，据此关闭 V3.0-B。人工验收来自用户确认；本次未重跑 build、Commandlet、Automation 或 Editor UI。
+- 更新 PROJECT_STATE、README、AGENTS 双语阶段状态；ARCHITECTURE 补充计划中的 Python 编排边界。准备 V3.1 最小标准库脚本的 CLI、退出码、报告消费与验收合同；未创建脚本或 CI。
+- 实际检查 Git 状态与最近提交、现有 Commandlet 源码、已有 Results.json 和 Manual Pass.json。已有证据不代表本次重跑测试成功。
+- 保留工作区已有 Test_Player.uasset 改动；此前自动化运行的资产哈希结论不代表当前工作区无资产改动。本次未修改 C++ 或资产，没有 commit / push。
+- 文档验证：git diff --check、双语阶段与任务一致性检查。剩余：V3.1 实现和实际验收，后续单独规划 CI；历史启动 Condition failed 尚未定位。
+
+---
+
 # English Version
 > Chronological development record. Keep this file append-oriented; summarize older history rather than rewriting it into project state.
 
@@ -1443,3 +1476,36 @@ Commands actually completed successfully (PowerShell):
 & 'D:/Epic Games/UE_5.8/Engine/Build/BatchFiles/Build.bat' PipelineToolkitEditor Win64 Development '-Project=D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject' -WaitMutex -NoHotReloadFromIDE
 & 'D:/Epic Games/UE_5.8/Engine/Binaries/Win64/UnrealEditor-Cmd.exe' 'D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject' -unattended -NullRHI -nosplash '-ExecCmds=Automation RunTests PipelineToolkit.Validation.Runner' '-TestExit=Automation Test Queue Empty' '-ReportExportPath=D:/Epic Games/UEProjects/PipelineToolkit/Saved/Automation/V3Runner' '-abslog=D:/Epic Games/UEProjects/PipelineToolkit/Saved/Logs/V3RunnerAutomation.log' -stdout -FullStdOutLogOutput
 ```
+
+---
+
+## 2026-10-02 — V3.0-A Manual Acceptance Complete / V3.0-B Preparation
+
+- The user confirmed completion of manual functional verification and code review. Closed V3.0-A and updated current state, README, and agent task boundaries. Acceptance is user-confirmed; no Editor, build, or Automation rerun was performed in this session. Historical entries retain their original point-in-time status.
+- Actual Git checks showed a clean starting worktree and HEAD `f8291a6 refactor(validation): extract Reusable Validation Runner`. This confirms the local commit only, not a remote push.
+- Prepared V3.0-B: one validate-only Commandlet reusing Runner / Writer, Scope / BlueprintPrefix / ReportPath parameters, and exit codes 0 / 1 / 2. Defined implementation and acceptance contracts without adding Commandlet source.
+- Documentation checks: `git diff --check`, bilingual structure, and stage-state consistency. No code or asset changes, commit, or push.
+- Remaining: V3.0-B implementation, actual execution without UI, JSON / exit-code verification, and Editor regression checks. The earlier startup `Condition failed` source remains unresolved; no fix is claimed.
+
+---
+
+## 2026-10-02 — V3.0-B Commandlet Implementation and Process Verification
+
+- Added `UValidateAssetsCommandlet`, reusing Runner / Writer with native CLI parsing, project-relative report paths, and exit codes 0/1/2. The module skips Tab / ToolMenus registration and cleanup only in Commandlet mode. Slate, Runner, Rule, and Writer were unchanged.
+- The actual Editor build succeeded. Nine real process cases passed: Default=1, Passing=0, Prefix=1, BlankScope=2, BlankPrefix=2, BlankReport=2, WriteFailure=2, MissingValue=2, EmptyQuery=0. Default schema 1 / 4 assets / PASS 2 / FAIL 1 / SKIP 1. Full asset statuses, suggested names, quoted relative paths, absolute paths, and failure diagnostics were verified.
+- Reran `PipelineToolkit.Validation.Runner` under ordinary Editor startup: process exit 0, 1 successful test / 0 errors / 0 warnings. Initialization still emitted `Condition failed` before the test started; it remains unresolved, not hidden or claimed fixed.
+- All `.uasset` SHA-256 hashes and counts matched the pre-run snapshot. Evidence is under `Saved/Automation/V3Commandlet/`: `Results.json` contains all actual process arguments and exit codes; `Build.log`, per-case logs, `AssetsBefore.json`, and `EditorRegression/index.json` capture verification. Runtime artifacts are not committed.
+- Build command: `Build.bat PipelineToolkitEditor Win64 Development -Project="D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject" -WaitMutex -NoHotReloadFromIDE`.
+- Base CLI command: `UnrealEditor-Cmd.exe "D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject" -run=ValidateAssets -unattended -NullRHI -nosplash -nosound -NoShaderCompile -nop4`. See `Results.json` for per-case arguments and log destinations.
+- Editor regression used `-ExecCmds="Automation RunTests PipelineToolkit.Validation.Runner" -TestExit="Automation Test Queue Empty" -ReportExportPath="D:/Epic Games/UEProjects/PipelineToolkit/Saved/Automation/V3Commandlet/EditorRegression"`, without `-run`.
+- Documentation/static checks: `git diff --check`, bilingual consistency, and unchanged existing execution-code checks. No commit / push. Manual Editor UI Scan / Fix / Revert / JSON regression for this slice remains pending. Python / CI has not started.
+
+---
+
+## 2026-10-03 — V3.0-B Acceptance Closed / V3.1 Preparation
+
+- The user explicitly confirmed acceptance, closing V3.0-B. Manual acceptance is user-confirmed; no build, Commandlet, Automation, or Editor UI rerun occurred in this session.
+- Updated bilingual stage status in PROJECT_STATE, README, and AGENTS; added the planned Python orchestration boundary to ARCHITECTURE. Prepared CLI, exit-code, report-consumption, and acceptance contracts for the minimal V3.1 standard-library script. No script or CI was created.
+- Actually inspected Git status and recent commits, existing Commandlet source, Results.json, and Manual Pass.json. Existing evidence is not claimed as newly passing test runs.
+- Preserved the preexisting Test_Player.uasset modification. Earlier automated-run asset hashes do not imply an asset-clean current worktree. No C++ or asset changes, commit, or push in this session.
+- Documentation verification: git diff --check and bilingual stage/task consistency checks. Remaining: V3.1 implementation and actual acceptance, then separate CI planning. Historical startup Condition failed remains unresolved.

@@ -20,6 +20,11 @@ void FProductionPipelineToolkitModule::StartupModule()
 		TEXT("ProductionPipelineToolkit: StartupModule() called.")
 	);
 
+	if (IsRunningCommandlet())
+	{
+		return;
+	}
+
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(
 		"ProductionPipelineToolkitTab",
 		FOnSpawnTab::CreateRaw(
@@ -50,6 +55,11 @@ void FProductionPipelineToolkitModule::ShutdownModule()
 		Display,
 		TEXT("ProductionPipelineToolkit: ShutdownModule() called.")
 	);
+
+	if (IsRunningCommandlet())
+	{
+		return;
+	}
 
 	UToolMenus::UnRegisterStartupCallback(this);
 

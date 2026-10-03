@@ -3,7 +3,7 @@
 > 本文记录长期架构护栏、边界和重要设计理由，不记录日常进度。
 > This document records durable architectural guardrails, boundaries, and design rationale rather than day-to-day progress.
 >
-> 最后更新 / Last updated: 2026-10-01
+> 最后更新 / Last updated: 2026-10-03
 
 ---
 
@@ -298,6 +298,22 @@ CI
 ```
 
 Python 不承担 Rule 语义。
+
+---
+
+### 4.1 V3.0-B 调用合同（已实现）
+
+用户已于 2026-10-02 确认 V3.0-A 人工验收和评审完成。`UValidateAssetsCommandlet` 已成为 Runner 的第二调用方。
+
+Commandlet 只承担 CLI 参数解析、Runner 调用、Writer 调用及退出码映射。Scope / BlueprintPrefix 进入 Config；ReportPath 保留在调用方，相对路径以项目目录为基准。成功执行即写现有 schema 1 报告，随后用 `FailedCount` 映射退出码：0 无失败、1 有规则失败；参数 / 执行 / 写入错误优先返回 2。禁止在 CLI 中复制规则或自动修改资产。模块用 `IsRunningCommandlet()` 跳过 Tab / ToolMenus 注册和清理，普通 Editor 路径不变。设置 `UseCommandletResultAsExitCode` 保持 Main 的 0/1/2 合同，不让其他模块的启动日志改变退出码。仅缺省参数使用默认值；显式空值不回退默认，已知参数缺少 `=` 返回 2。执行失败不写报告，也不删除可能存在的旧报告；调用方必须检查本次退出码。
+
+---
+
+### 4.2 V3.1 Python 编排边界（准备中）
+
+V3.0-B 于 2026-10-03 获用户确认验收完成。下一切片计划用标准库脚本启动现有 Commandlet，转发参数和日志，消费 schema 1 报告并输出摘要。Python 不发现资产、不执行规则、不修改资产，也不自动构建 UE；CI 后续独立接入。
+
+UE 退出码 0 / 1 时读取本次报告，2 时不消费可能遗留的旧报告；脚本参数、启动、异常退出与报告消费错误返回 2。具体 CLI 和验收合同见 `PROJECT_STATE.md`，当前尚未实现。
 
 ---
 
@@ -873,6 +889,22 @@ CI
 ```
 
 Python does not own rule semantics.
+
+---
+
+### 4.1 V3.0-B Invocation Contract (implemented)
+
+On 2026-10-02 the user confirmed V3.0-A manual acceptance and review. `UValidateAssetsCommandlet` is now the second Runner caller.
+
+The Commandlet owns only CLI parsing, Runner invocation, Writer invocation, and exit-code mapping. Scope / BlueprintPrefix enter Config; ReportPath stays with the caller, resolving relative paths from the project directory. Successful execution writes the existing schema 1 report, then maps `FailedCount` to exit code 0 for no failures or 1 for rule failures. Argument / execution / writing errors take precedence and return 2. Do not duplicate rules in the CLI or mutate assets. The module uses `IsRunningCommandlet()` to skip Tab / ToolMenus registration and cleanup, preserving ordinary Editor behavior. `UseCommandletResultAsExitCode` preserves Main's 0/1/2 contract despite startup log messages from other modules. Defaults apply only to omitted parameters; explicit empty values do not fall back, and known arguments without `=` return 2. Execution failure writes no report and does not delete a preexisting report; callers must check the current exit code.
+
+---
+
+### 4.2 V3.1 Python Orchestration Boundary (preparation)
+
+The user confirmed V3.0-B acceptance on 2026-10-03. The next slice plans a standard-library script to launch the existing Commandlet, forward parameters and logs, consume schema 1 reports, and print a summary. Python does not discover assets, execute rules, mutate assets, or build UE automatically. CI follows separately.
+
+UE exits 0 / 1 gate reading the current report; exit 2 does not consume a possible old report. Script argument, launch, abnormal-exit, and report-consumption errors return 2. See `PROJECT_STATE.md` for CLI and acceptance contracts; implementation has not started.
 
 ---
 

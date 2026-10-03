@@ -3,7 +3,7 @@
 > 当前真实状态文档。项目事实发生变化时更新。
 > Current-truth document. Update when verified project facts change.
 >
-> 最后更新 / Last updated: 2026-10-01
+> 最后更新 / Last updated: 2026-10-03
 
 ---
 
@@ -178,9 +178,9 @@ Commandlet ────┘
                   └── Exit Code
 ```
 
-但 **当前第一步不是直接写 Commandlet**。
+V3.0-A 与 V3.0-B 已完成验收；当前准备 V3.1 本地 Python 编排，尚未实现。
 
-#### V3.0-A — 当前开发切片：Validation Runner Refactor
+#### V3.0-A — 已完成：Validation Runner Refactor
 
 已实现 `FValidationConfig + FValidationRunner`，`OnScanClicked()` 只读取输入、调用 Runner 和刷新展示。
 
@@ -188,7 +188,7 @@ Commandlet ────┘
 - 插件已在无渲染 Editor 自动化进程中加载。
 - `PipelineToolkit.Validation.Runner` 原生 Automation 测试成功：真实 Fixture 为 4 项 / PASS 2 / FAIL 1 / SKIP 1；同时验证输入去空白、可配置前缀、重复执行替换结果、失败清空状态与可选错误输出。
 - 测试报告：`Saved/Automation/V3Runner/index.json`；日志：`Saved/Logs/V3RunnerAutomation.log`。UE 初始化时出现测试开始前的 `LogAutomationTest: Error: Condition failed`，来源未定位；本次 Runner 测试报告为 0 错误 / 0 警告。
-- Slate 界面、Fix/Revert 与 UI JSON 导出尚待人工验证；V3.0-A 尚未完成全部验收，不进入 V3.0-B。
+- 2026-10-02 用户确认人工功能验证与代码评审完成，Editor 展示、Scan、Fix/Revert、JSON 导出及配置错误后的状态清理通过验收。该结论来自用户确认，并非本次 Agent 重跑 Editor。V3.0-A 已完成。
 
 当前共享边界：
 
@@ -214,7 +214,7 @@ Slate 保留：
 - Fix / Revert
 - Editor-only interaction
 
-第一阶段完成标准：
+第一阶段验收标准（已完成）：
 
 ```text
 Editor behavior unchanged
@@ -224,16 +224,19 @@ same fixture results
 validation execution no longer owned by Slate
 ```
 
-在此验证完成之前：
+V3.0-A 验收门槛已满足，允许进入 Commandlet；Python wrapper、GitHub Actions CI 与通用 Rule Framework 仍不属于 V3.0-B。
 
-- 不实现 Commandlet
-- 不实现 Python wrapper
-- 不实现 GitHub Actions CI
-- 不扩展 Rule Framework
+#### V3.0-B — 已完成：Editor Commandlet
 
-#### V3.0-B — 后续：Editor Commandlet
+已实现 `UValidateAssetsCommandlet`，复用 Runner / Writer，并在 Commandlet 环境跳过模块的 Tab / ToolMenus 注册与清理。
 
-Runner 重构验证后再进入：
+- UE Editor 构建成功；9 个实际进程场景通过：默认 1、Characters 0、自定义 Prefix 1、空白 Scope/Prefix/ReportPath 2、报告写入失败 2、缺少参数值 2、不存在的 Scope 0（空结果）。
+- 默认 JSON schema 1，4 项 / PASS 2 / FAIL 1 / SKIP 1；带空格相对路径与绝对路径报告通过。
+- 原有 Runner Automation 在普通 Editor 启动路径下通过，报告 1 项成功 / 0 错误 / 0 警告；全部 `.uasset` 运行前后 SHA-256 一致。
+- 证据：`Saved/Automation/V3Commandlet/Results.json`（完整进程参数和退出码）、`Build.log`、`EditorRegression/index.json` 及各场景日志。
+- 2026-10-03 用户确认本切片验收完毕，关闭 V3.0-B。人工验收结论来自用户确认，本次 Agent 未重跑 Editor / build / Automation。初始化 `Condition failed` 仍未定位，不声称整个启动日志无错误。
+
+当前执行边界：
 
 ```text
 UE Editor Commandlet
@@ -254,6 +257,9 @@ Plugins/ProductionPipelineToolkit/
 └─ Source/ProductionPipelineToolkit/
    ├─ Private/
    │  ├─ ProductionPipelineToolkit.cpp
+   │  ├─ Commandlets/
+   │  │  ├─ ValidateAssetsCommandlet.h
+   │  │  └─ ValidateAssetsCommandlet.cpp
    │  ├─ UI/
    │  │  └─ SProductionPipelineToolkit.cpp
    │  ├─ Tests/
@@ -337,39 +343,19 @@ git log --oneline -5
 
 ---
 
-## 6. Codex 当前交接任务
+## 6. Codex 当前交接任务 — V3.1（准备中，尚未实现）
 
-已实现的切片目标（仍待 Editor 人工验收）：
+V3.0-B 已验收关闭。下一节点计划新增 `Scripts/run_validation.py`，仅使用 Python 标准库，将手工调用变为可重复执行的本地自动化入口。以下为开发合同，不代表已实现：
 
-```text
-Refactor the existing Editor validation execution into a reusable
-FValidationRunner driven by FValidationConfig.
-```
+- CLI：必填 `--ue-cmd`、`--project`；可选 `--scope`、`--blueprint-prefix`、`--report-path`，默认值沿用 Commandlet，相对报告路径以项目目录为基准。
+- 使用参数列表启动现有 Commandlet，不通过 shell 拼接命令；支持路径中的空格并转发 UE 日志。
+- UE 返回 0 / 1 时读取本次 schema 1 报告，显示资产总数和 PASS / FAIL / SKIP；返回 2 时不消费可能遗留的旧报告。
+- 保留 0 / 1 / 2 合同；脚本参数错误、启动失败、异常进程退出、报告缺失 / 无法解析 / schema 不支持统一返回 2，并说明原因。
+- Python 只编排进程与消费报告，不实现 Rule / Discovery、不修改资产或 C++ 验证语义、不重设计 JSON。此切片不自动构建 UE、不加入 CI 或通用框架。
+- 验收：通过脚本实际运行默认 Fixture 得到 4 项 / PASS 2 / FAIL 1 / SKIP 1、退出码 1；Characters 得到 PASS 1、退出码 0；空配置、不可写报告目标及无效 UE 路径返回 2；带空格路径通过，失败不误读旧报告，资产无修改。
+- 顺序：实现脚本 → 实际进程验证 → 人工验收 → 再单独确定 CI 执行环境与报告归档。
 
-范围：
-
-- 把 Asset Registry discovery 移出 Slate
-- 把 Redirector filtering 移出 Slate
-- 把 BlueprintNamingRule evaluation 移出 Slate
-- 把 `FValidationRun` construction / summary 移出 Slate
-- 保留 Slate presentation
-- 保留 Fix / Revert 在 Editor UI
-- 保持 JSON schema 不变
-- 不实现 Commandlet
-- 不引入 Rule Framework
-
-验收：
-
-```text
-BP_PlayerTest → PASS
-Test_Player   → FAIL
-M_Test        → SKIP
-BP_EnemyTest  → PASS
-```
-
-且 Editor UI 的现有行为保持一致。
-
-下一步人工验收：默认 Scope `/Game/ValidationTest`、Prefix `BP_` 扫描并检查 Summary / Result Rows；Fix `Test_Player` 后检查更名及重新扫描；Revert 后恢复基线；导出 JSON 检查 `schema_version = 1` 和结果字段；空白 Scope / Prefix 后确认旧结果清空。完成后才能进入 Commandlet。
+历史启动日志中的 `Condition failed` 仍为未定位观察，不因本次人工验收被标记为已修复。
 
 ---
 
@@ -528,9 +514,9 @@ Commandlet ────┘
                   └── Exit Code
 ```
 
-The current first step is **not** Commandlet implementation.
+V3.0-A and V3.0-B acceptance is complete. V3.1 local Python orchestration is being prepared, not implemented.
 
-#### V3.0-A — current slice: Validation Runner Refactor
+#### V3.0-A — complete: Validation Runner Refactor
 
 `FValidationConfig + FValidationRunner` are implemented. `OnScanClicked()` now only reads input, calls the Runner, and refreshes presentation.
 
@@ -538,7 +524,7 @@ The current first step is **not** Commandlet implementation.
 - The plugin loaded in the Editor automation process with rendering disabled.
 - The native `PipelineToolkit.Validation.Runner` Automation test passed: the real fixture produced 4 results / PASS 2 / FAIL 1 / SKIP 1. It also verified trimming, configurable prefixes, replacement of results on repeated calls, state clearing on failure, and optional error output.
 - Report: `Saved/Automation/V3Runner/index.json`; log: `Saved/Logs/V3RunnerAutomation.log`. UE initialization emitted `LogAutomationTest: Error: Condition failed` before the test started; the source is unresolved. The Runner test report contains 0 errors / 0 warnings.
-- Slate presentation, Fix/Revert, and UI JSON export still require manual verification. Full V3.0-A acceptance is pending; do not start V3.0-B yet.
+- On 2026-10-02 the user confirmed completion of manual functional verification and code review, covering Editor presentation, Scan, Fix/Revert, JSON export, and state clearing after configuration errors. This is user-confirmed acceptance, not an Editor rerun by the agent in this session. V3.0-A is complete.
 
 Current shared boundary:
 
@@ -564,7 +550,7 @@ Slate keeps:
 - Fix/Revert
 - Editor-only interaction
 
-Acceptance:
+Acceptance criteria (completed):
 
 ```text
 Editor behavior unchanged
@@ -574,11 +560,19 @@ same fixture results
 validation execution no longer owned by Slate
 ```
 
-Do not implement Commandlet, Python, CI, or a larger Rule Framework before this slice is verified.
+The V3.0-A acceptance gate is satisfied, so Commandlet work may begin. Python wrappers, GitHub Actions CI, and a generic rule framework remain outside V3.0-B.
 
-#### V3.0-B — next: Editor Commandlet
+#### V3.0-B — complete: Editor Commandlet
 
-After the Runner refactor is verified:
+`UValidateAssetsCommandlet` reuses the Runner / Writer. Module Tab / ToolMenus registration and cleanup are skipped in Commandlet mode.
+
+- The UE Editor build succeeded. Nine actual process cases passed: default 1, Characters 0, custom Prefix 1, blank Scope/Prefix/ReportPath 2, report-writing failure 2, missing argument value 2, and nonexistent Scope 0 (empty results).
+- Default JSON uses schema 1 with 4 assets / PASS 2 / FAIL 1 / SKIP 1. Reports to quoted relative paths containing spaces and absolute paths passed.
+- Existing Runner Automation passed under ordinary Editor startup with 1 successful test / 0 errors / 0 warnings. All `.uasset` SHA-256 hashes were unchanged.
+- Evidence: `Saved/Automation/V3Commandlet/Results.json` (full process arguments and exit codes), `Build.log`, `EditorRegression/index.json`, and per-case logs.
+- On 2026-10-03 the user confirmed acceptance, closing V3.0-B. Manual acceptance is user-confirmed; the agent did not rerun Editor / build / Automation in this session. Initialization `Condition failed` remains unresolved; the entire startup log is not claimed to be error-free.
+
+Current execution boundary:
 
 ```text
 UE Editor Commandlet
@@ -601,6 +595,9 @@ Plugins/ProductionPipelineToolkit/
 └─ Source/ProductionPipelineToolkit/
    ├─ Private/
    │  ├─ ProductionPipelineToolkit.cpp
+   │  ├─ Commandlets/
+   │  │  ├─ ValidateAssetsCommandlet.h
+   │  │  └─ ValidateAssetsCommandlet.cpp
    │  ├─ UI/
    │  │  └─ SProductionPipelineToolkit.cpp
    │  ├─ Tests/
@@ -684,36 +681,16 @@ Do not record planned work as completed work.
 
 ---
 
-## 6. Current Codex Handoff
+## 6. Current Codex Handoff — V3.1 (preparation, not implemented)
 
-Implemented slice objective (manual Editor acceptance is still pending):
+V3.0-B acceptance is closed. Plan `Scripts/run_validation.py`, using only the Python standard library, to turn manual invocation into a repeatable local automation entry point. The following is a development contract, not implemented behavior:
 
-```text
-Refactor the existing Editor validation execution into a reusable
-FValidationRunner driven by FValidationConfig.
-```
+- CLI: require `--ue-cmd` and `--project`; offer `--scope`, `--blueprint-prefix`, and `--report-path` with Commandlet defaults. Resolve relative report paths from the project directory.
+- Launch the existing Commandlet with an argument list without shell concatenation; support spaces in paths and forward UE logs.
+- On UE exit 0 / 1, read the current schema 1 report and print asset / PASS / FAIL / SKIP counts. On exit 2, do not consume a possible old report.
+- Preserve the 0 / 1 / 2 contract. Script argument errors, launch failures, abnormal process exits, missing / unreadable reports, and unsupported schemas return 2 with diagnostics.
+- Python only orchestrates processes and consumes reports: no rule / discovery implementation, asset mutation, C++ validation semantics changes, or JSON redesign. No automatic UE build, CI, or generic framework in this slice.
+- Acceptance: actual script runs produce default 4 assets / PASS 2 / FAIL 1 / SKIP 1 with exit 1, and Characters PASS 1 with exit 0. Blank configuration, unwritable report targets, and invalid UE paths return 2. Paths containing spaces work; failures do not consume stale reports; assets remain unchanged.
+- Sequence: implement script → verify actual processes → manual acceptance → separately choose CI execution infrastructure and report archiving.
 
-Scope:
-
-- move Asset Registry discovery out of Slate
-- move redirector filtering out of Slate
-- move `BlueprintNamingRule` evaluation out of Slate
-- move `FValidationRun` construction/summary out of Slate
-- keep Slate presentation
-- keep Fix/Revert in Editor UI
-- preserve JSON schema
-- do not implement Commandlet yet
-- do not introduce a Rule Framework
-
-Acceptance fixture:
-
-```text
-BP_PlayerTest → PASS
-Test_Player   → FAIL
-M_Test        → SKIP
-BP_EnemyTest  → PASS
-```
-
-Existing Editor behavior must remain unchanged.
-
-Next manual checks: scan Scope `/Game/ValidationTest` with Prefix `BP_` and inspect Summary / Result Rows; Fix `Test_Player` and check the rename and refreshed scan; Revert and confirm the baseline; export JSON and check `schema_version = 1` and result fields; submit blank Scope / Prefix and confirm stale results are cleared. Complete these before starting Commandlet.
+The historical startup `Condition failed` observation remains unresolved; this manual acceptance does not establish a fix.

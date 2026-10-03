@@ -3,7 +3,7 @@
 > Repository-level rules for Codex and other coding agents.
 > 本文件是 Codex / Agent 在仓库内开发时必须遵守的长期规则。
 >
-> Last updated / 最后更新: 2026-10-01
+> Last updated / 最后更新: 2026-10-03
 
 ---
 
@@ -106,132 +106,51 @@ Writer = Serialization
 
 ## 4. 当前 V3 工作任务
 
-### V3.0-A — Validation Runner Refactor
+### V3.0-A — 已完成
 
-当前第一任务：
+Runner 重构已实现，构建与原生 Automation 测试通过；用户于 2026-10-02 确认人工功能验证与代码评审完成。保留现有 Widget / Runner / Rule / Run / Writer 边界。
 
-```text
-Refactor the existing Editor validation execution into a reusable
-FValidationRunner driven by FValidationConfig.
-```
+### V3.0-B — Editor Commandlet（已完成）
 
-新增的最小 Config：
-
-```cpp
-struct FValidationConfig
-{
-    FString Scope;
-    FString BlueprintPrefix;
-};
-```
-
-Runner 应拥有：
-
-- config validation
-- Asset Registry loading / discovery
-- recursive `GetAssetsByPath`
-- Redirector filtering
-- `FBlueprintNamingRule::Evaluate`
-- `FValidationRun` construction
-- `RecalculateSummary`
-- Validation execution log
-
-Slate 应保留：
-
-- `SEditableTextBox` input
-- status / error presentation
-- SummaryText
-- ResultsContainer / Slate rows
-- Fix button
-- Revert button
-- `UEditorAssetSubsystem` Auto-Fix / Revert interaction
-- `FValidationReportWriter` trigger can remain UI-side for V3.0-A
-
-推荐最小 Runner 接口：
-
-```cpp
-static bool Run(
-    const FValidationConfig& Config,
-    FValidationRun& OutRun,
-    FString* OutErrorMessage = nullptr);
-```
-
-可以根据实际编译需要做小幅调整，但不要扩张为通用 Framework。
-
-### 当前禁止在同一切片中实现
-
-除非用户明确改变任务范围，否则不要加入：
-
-- Commandlet
-- Python wrapper
-- GitHub Actions
-- SQLite
-- Blender
-- AI / RAG
-- second validation engine
-- generic Rule Framework
-- JSON schema redesign
-
----
-
-## 5. V3.0-A 验收
-
-重构后必须保持 Editor 行为。
-
-默认 Fixture：
+已实现 `UValidateAssetsCommandlet`，入口 `-run=ValidateAssets`；构建和 9 个真实进程场景通过，普通 Editor 启动下的 Runner Automation 回归通过，资产哈希不变：
 
 ```text
-Scope  = /Game/ValidationTest
-Prefix = BP_
+CLI parameters → FValidationConfig → FValidationRunner
+                                      ↓
+                                FValidationRun
+                                  ├── existing JSON Writer
+                                  └── process exit code
 ```
 
-预期：
+- 输入：`-Scope=`、`-BlueprintPrefix=`、`-ReportPath=`。
+- 默认值：`/Game/ValidationTest`、`BP_`、`Saved/ValidationReports/ValidationReport.json`。
+- 相对报告路径以项目目录为基准；不把 ReportPath 加进 `FValidationConfig`。
+- 退出码：`0` 无规则 FAIL 且报告成功；`1` 有规则 FAIL 且报告成功；`2` 参数 / 执行 / 报告写入失败。
+- 规则 FAIL 时仍导出完整 JSON；执行失败不导出无效 Run。
+- 保持已有 Runner 查询与输入语义、JSON schema；不复制验证执行逻辑。
+- 模块在 `IsRunningCommandlet()` 时跳过 Tab / ToolMenus 注册和清理，普通 Editor 路径保持原行为。
 
-```text
-BP_PlayerTest → PASS
-Test_Player   → FAIL
-M_Test        → SKIP
-BP_EnemyTest  → PASS
-```
+2026-10-03 用户确认 V3.0-B 验收完毕，人工验收来自用户确认，本次未重跑 Editor / build / Automation。此前资产哈希一致仅描述自动化运行前后，不代表当前工作区无资产改动。
 
-验证：
+### V3.1 — 本地 Python 编排（准备中，尚未实现）
 
-- 项目能够编译
-- Plugin 能正常加载
-- Scan 正常
-- Summary counts 正常
-- Result rows 正常
-- Fix / Revert 行为未被破坏
-- Export JSON 行为与 schema 未被无故改变
+下一节点新增最小标准库脚本 `Scripts/run_validation.py`，调用现有 Commandlet、读取 schema 1 报告并输出摘要。CLI、退出码和验收合同见 `PROJECT_STATE.md` 第 6 节。Python 不承担 Rule / Discovery，不修改资产或 JSON schema，不自动构建 UE；CI 留给后续独立切片。
 
-如无法自动验证 UE Editor 行为：
+## 5. V3.0-B 验收基线（已关闭）
 
-- 明确列出已完成的 compile/static verification
-- 明确列出需要用户在 Editor 中人工验证的步骤
-- 不得把未执行的 Editor 验证写成 PASS
+- 项目编译，Commandlet 被 UE 发现并可无 UI 运行。
+- 默认 Fixture：4 项 / PASS 2 / FAIL 1 / SKIP 1，JSON schema 1，退出码 1。
+- Scope `/Game/ValidationTest/Characters`：PASS 1，退出码 0。
+- 空白配置、不可写报告目标：退出码 2，日志说明原因。
+- 保留现有空目录 / 查询失败语义，不新增特殊资产发现策略。
+- 资产无修改，Editor Scan / Fix / Revert / JSON 行为不回归。
+- 记录实际命令、报告和进程退出码；未执行的检查不得写为 PASS。
 
----
+## 6. 当前切片边界
 
-## 6. Commandlet 何时开始
+Commandlet 第一版只验证，不 Auto-Fix，不修改资产。V3.1 允许实现最小 Python wrapper；不得加入 GitHub Actions、SQLite、Blender、AI/RAG、第二验证引擎、通用 Rule/Fix Framework 或 JSON schema 重设计。
 
-只有 V3.0-A 完成并验证后，才进入 V3.0-B：
-
-```text
-UE Editor Commandlet
-    ↓
-FValidationRunner
-    ↓
-FValidationRun
-    ├── JSON
-    └── Process Exit Code
-```
-
-第一版 Commandlet：
-
-```text
-Validate only
-No automatic asset mutation
-```
+V3.0-B 已验收关闭，运行证据见 `Saved/Automation/V3Commandlet/`。V3.1 当前仅准备，不得记为已实现或测试通过。历史启动 `Condition failed` 仍未定位。
 
 ---
 
@@ -391,128 +310,51 @@ Writer = Serialization
 
 ## 4. Current V3 Task
 
-### V3.0-A — Validation Runner Refactor
+### V3.0-A — complete
 
-First task:
+The Runner refactor is implemented; the build and native Automation test passed. On 2026-10-02 the user confirmed completion of manual functional verification and code review. Preserve the existing Widget / Runner / Rule / Run / Writer boundaries.
 
-```text
-Refactor the existing Editor validation execution into a reusable
-FValidationRunner driven by FValidationConfig.
-```
+### V3.0-B — Editor Commandlet (complete)
 
-Minimal Config:
-
-```cpp
-struct FValidationConfig
-{
-    FString Scope;
-    FString BlueprintPrefix;
-};
-```
-
-Runner owns:
-
-- config validation
-- Asset Registry loading / discovery
-- recursive `GetAssetsByPath`
-- Redirector filtering
-- `FBlueprintNamingRule::Evaluate`
-- `FValidationRun` construction
-- `RecalculateSummary`
-- validation execution logging
-
-Slate keeps:
-
-- `SEditableTextBox` input
-- status / error presentation
-- SummaryText
-- ResultsContainer / Slate rows
-- Fix button
-- Revert button
-- `UEditorAssetSubsystem` Auto-Fix / Revert interaction
-- the JSON export trigger may remain UI-side for V3.0-A
-
-Recommended minimal Runner interface:
-
-```cpp
-static bool Run(
-    const FValidationConfig& Config,
-    FValidationRun& OutRun,
-    FString* OutErrorMessage = nullptr);
-```
-
-Small changes are allowed when compile requirements prove necessary, but do not expand this into a generic framework.
-
-### Do not implement in the same slice unless the user changes scope
-
-- Commandlet
-- Python wrapper
-- GitHub Actions
-- SQLite
-- Blender
-- AI / RAG
-- second validation engine
-- generic Rule Framework
-- JSON schema redesign
-
----
-
-## 5. V3.0-A Acceptance
-
-Default fixture:
+`UValidateAssetsCommandlet` is implemented and invoked with `-run=ValidateAssets`. The build and 9 actual process cases passed, Runner Automation passed under ordinary Editor startup, and asset hashes are unchanged:
 
 ```text
-Scope  = /Game/ValidationTest
-Prefix = BP_
+CLI parameters → FValidationConfig → FValidationRunner
+                                      ↓
+                                FValidationRun
+                                  ├── existing JSON Writer
+                                  └── process exit code
 ```
 
-Expected:
+- Inputs: `-Scope=`, `-BlueprintPrefix=`, and `-ReportPath=`.
+- Defaults: `/Game/ValidationTest`, `BP_`, and `Saved/ValidationReports/ValidationReport.json`.
+- Resolve relative report paths from the project directory; do not add ReportPath to `FValidationConfig`.
+- Exit codes: `0` = no rule FAIL and report success; `1` = rule FAIL and report success; `2` = argument / execution / report-writing failure.
+- Rule FAIL still produces the complete JSON report; execution failures do not export an invalid Run.
+- Preserve existing Runner query/input semantics and the JSON schema; do not duplicate validation execution.
+- The module skips Tab / ToolMenus registration and cleanup when `IsRunningCommandlet()` is true; the ordinary Editor path retains its behavior.
 
-```text
-BP_PlayerTest → PASS
-Test_Player   → FAIL
-M_Test        → SKIP
-BP_EnemyTest  → PASS
-```
+On 2026-10-03 the user confirmed V3.0-B acceptance. Manual acceptance is user-confirmed; no Editor / build / Automation rerun occurred in this session. Earlier unchanged asset hashes describe the automated runs only, not an asset-clean current worktree.
 
-Verify:
+### V3.1 — Local Python Orchestration (preparation, not implemented)
 
-- project compiles
-- Plugin loads
-- Scan works
-- summary counts remain correct
-- result rows remain correct
-- Fix / Revert is not broken
-- Export JSON behavior/schema is not changed without reason
+The next node adds the minimal standard-library `Scripts/run_validation.py` to invoke the existing Commandlet, consume schema 1 reports, and print a summary. See section 6 of `PROJECT_STATE.md` for CLI, exit-code, and acceptance contracts. Python does not own rules / discovery, mutate assets, redesign JSON, or build UE automatically. CI remains a later separate slice.
 
-If UE Editor behavior cannot be automatically verified:
+## 5. V3.0-B Acceptance Baseline (closed)
 
-- report exactly which compile/static checks were run
-- list the manual Editor checks the user must run
-- do not mark unexecuted Editor verification as PASS
+- The project compiles; UE discovers and runs the Commandlet without UI.
+- Default fixture: 4 assets / PASS 2 / FAIL 1 / SKIP 1, JSON schema 1, exit code 1.
+- Scope `/Game/ValidationTest/Characters`: PASS 1, exit code 0.
+- Blank configuration and an unwritable report destination: exit code 2 and a diagnostic log.
+- Preserve existing empty-folder/query-failure semantics without introducing a new discovery strategy.
+- Assets remain unchanged; Editor Scan / Fix / Revert / JSON behavior does not regress.
+- Record actual commands, reports, and process exit codes. Never mark unexecuted checks as PASS.
 
----
+## 6. Current Slice Boundary
 
-## 6. When to Start Commandlet
+The first Commandlet validates only: no Auto-Fix or asset mutation. V3.1 may implement the minimal Python wrapper. Do not add GitHub Actions, SQLite, Blender, AI/RAG, a second validation engine, a generic Rule/Fix Framework, or a JSON schema redesign.
 
-Only after V3.0-A is verified:
-
-```text
-UE Editor Commandlet
-    ↓
-FValidationRunner
-    ↓
-FValidationRun
-    ├── JSON
-    └── Process Exit Code
-```
-
-First Commandlet:
-
-```text
-Validate only
-No automatic asset mutation
-```
+V3.0-B acceptance is closed; evidence is under `Saved/Automation/V3Commandlet/`. V3.1 is preparation only; do not record it as implemented or tested. Historical startup `Condition failed` remains unresolved.
 
 ---
 
