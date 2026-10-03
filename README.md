@@ -63,6 +63,8 @@ Commandlet ────┘
                   JSON + Exit Code
 ```
 
+2026-10-03 已补齐 Rule / Writer 原生 Automation 合同测试：Validation 组 3 项通过，新增测试重跑 2 项通过。详细验证与启动问题见 `PROJECT_STATE.md`。
+
 下一节点为 V3.1 本地 Python 编排（准备中，尚未实现）：调用 Commandlet、读取 JSON 摘要并保留退出码；CI 后续独立接入。开发合同与验收标准见 `PROJECT_STATE.md`。
 
 ## Commandlet 使用
@@ -164,6 +166,8 @@ Commandlet ────┘
                        ↓
                   JSON + Exit Code
 ```
+
+On 2026-10-03 native Rule / Writer Automation contract tests were added: the Validation group passed 3 tests, and a repeat passed 2 new tests. See `PROJECT_STATE.md` for verification details and startup issues.
 
 Next is V3.1 local Python orchestration (preparation, not implemented): invoke the Commandlet, summarize JSON, and preserve exit codes. CI follows separately. See `PROJECT_STATE.md` for the development contract and acceptance criteria.
 

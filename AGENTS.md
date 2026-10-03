@@ -132,6 +132,10 @@ CLI parameters → FValidationConfig → FValidationRunner
 
 2026-10-03 用户确认 V3.0-B 验收完毕，人工验收来自用户确认，本次未重跑 Editor / build / Automation。此前资产哈希一致仅描述自动化运行前后，不代表当前工作区无资产改动。
 
+### Rule / Writer 合同测试 — 已完成（2026-10-03）
+
+已新增原生 Automation 合同测试，Validation 组 3 项通过，新测试独立重跑 2 项通过，两轮进程均为 0；资产哈希不变，临时目录已清理。首次 Automation 启动在测试前出现 `Null assigned to TNotNull` 崩溃，简化启动参数后成功，原因未定位；历史 `Condition failed` 仍未解决。证据见 `Saved/Automation/ValidationContractsEvidence/`。现有 Runner 测试与生产代码保持不变。
+
 ### V3.1 — 本地 Python 编排（准备中，尚未实现）
 
 下一节点新增最小标准库脚本 `Scripts/run_validation.py`，调用现有 Commandlet、读取 schema 1 报告并输出摘要。CLI、退出码和验收合同见 `PROJECT_STATE.md` 第 6 节。Python 不承担 Rule / Discovery，不修改资产或 JSON schema，不自动构建 UE；CI 留给后续独立切片。
@@ -335,6 +339,10 @@ CLI parameters → FValidationConfig → FValidationRunner
 - The module skips Tab / ToolMenus registration and cleanup when `IsRunningCommandlet()` is true; the ordinary Editor path retains its behavior.
 
 On 2026-10-03 the user confirmed V3.0-B acceptance. Manual acceptance is user-confirmed; no Editor / build / Automation rerun occurred in this session. Earlier unchanged asset hashes describe the automated runs only, not an asset-clean current worktree.
+
+### Rule / Writer Contract Tests — complete (2026-10-03)
+
+Native Automation contract tests were added: the Validation group passed 3 tests, and an independent repeat passed 2 new tests, both processes exiting 0. Asset hashes were unchanged and temporary directories cleaned. The initial Automation startup crashed before tests with `Null assigned to TNotNull`; simplified startup flags succeeded, but the cause is unresolved. Historical `Condition failed` is also unresolved. Evidence: `Saved/Automation/ValidationContractsEvidence/`. Existing Runner tests and production code are unchanged.
 
 ### V3.1 — Local Python Orchestration (preparation, not implemented)
 

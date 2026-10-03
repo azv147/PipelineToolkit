@@ -250,6 +250,15 @@ FValidationRun
 
 ---
 
+#### Rule / Writer 合同测试 — 已完成（2026-10-03）
+
+- 新增原生 Automation `PipelineToolkit.Validation.BlueprintNamingRule` 和 `PipelineToolkit.Validation.ReportWriter`。Rule 使用构造的资产元数据；Writer 在独立 GUID 临时目录写入并解析报告，不依赖或修改 Fixture。
+- 覆盖规则 PASS / FAIL / SKIP、自定义前缀、结果身份和修复建议；覆盖 schema 1、字段与计数、三种状态、可选建议名称、中文 / 引号 / 反斜杠 / 换行往返、空 Run 和写入失败诊断。当前 Writer 通过错误字符串而非日志报告写入失败，测试明确断言该诊断。
+- 实际 Editor 构建成功；整个 Validation 组 3 项成功，新增测试重跑 2 项成功；两轮进程退出码均为 0，各测试 0 错误 / 0 警告。四个 `.uasset` SHA-256 不变，临时目录已清理；生产接口、实现和 schema 未修改。
+- 证据：`Saved/Automation/ValidationContractsEvidence/` 的 `Build.log`、`AllRetry/index.json`、`Repeat/index.json`、各轮日志 / 退出码和 `Verification.json`。
+- 首次带 `-nosound -NoShaderCompile -nop4` 的 Automation 启动在测试开始前崩溃（`Null assigned to TNotNull`，进程 -1073741571）。改用此前成功的 `-unattended -NullRHI -nosplash` 参数后两轮成功；未定位崩溃原因，不声明参数因果关系。启动 `Condition failed` 仍存在且未解决。
+- 下一节点仍为 V3.1 Python 编排，准备中，尚未实现。本次没有重新执行 Commandlet 场景或人工 UI 回归，没有 commit / push。
+
 ## 3. 当前重要文件
 
 ```text
@@ -263,6 +272,8 @@ Plugins/ProductionPipelineToolkit/
    │  ├─ UI/
    │  │  └─ SProductionPipelineToolkit.cpp
    │  ├─ Tests/
+   │  │  ├─ BlueprintNamingRuleTests.cpp
+   │  │  ├─ ValidationReportWriterTests.cpp
    │  │  └─ ValidationRunnerTests.cpp
    │  └─ Validation/
    │     ├─ BlueprintNamingRule.h
@@ -586,6 +597,15 @@ FValidationRun
 
 ---
 
+#### Rule / Writer Contract Tests — complete (2026-10-03)
+
+- Added native Automation `PipelineToolkit.Validation.BlueprintNamingRule` and `PipelineToolkit.Validation.ReportWriter`. Rule tests use constructed asset metadata; Writer tests serialize and parse reports in isolated GUID temporary directories without depending on or changing the fixture.
+- Covers rule PASS / FAIL / SKIP, custom prefixes, result identity, and fix suggestions; schema 1, fields / counts, three statuses, optional suggestions, Chinese / quote / backslash / newline round trips, empty runs, and write-failure diagnostics. The current Writer returns write failures through an error string, not a log; tests explicitly assert that diagnostic.
+- Actual Editor build succeeded. The full Validation group passed 3 tests; repeat execution passed 2 new tests. Both processes exited 0, with 0 errors / 0 warnings per test. All four `.uasset` SHA-256 hashes were unchanged, and temporary directories were cleaned. Production interfaces, implementations, and schema were unchanged.
+- Evidence: `Saved/Automation/ValidationContractsEvidence/` contains `Build.log`, `AllRetry/index.json`, `Repeat/index.json`, logs / exit codes, and `Verification.json`.
+- The initial Automation launch with `-nosound -NoShaderCompile -nop4` crashed before tests started (`Null assigned to TNotNull`, exit -1073741571). Both runs succeeded using the previously successful `-unattended -NullRHI -nosplash` flags. The crash cause is unresolved; no causal claim about individual flags is made. Startup `Condition failed` remains present and unresolved.
+- Next is still V3.1 Python orchestration, preparation only. No Commandlet-case rerun, manual UI regression, commit, or push occurred in this session.
+
 ## 3. Important Files
 
 Current validation-related source:
@@ -601,6 +621,8 @@ Plugins/ProductionPipelineToolkit/
    │  ├─ UI/
    │  │  └─ SProductionPipelineToolkit.cpp
    │  ├─ Tests/
+   │  │  ├─ BlueprintNamingRuleTests.cpp
+   │  │  ├─ ValidationReportWriterTests.cpp
    │  │  └─ ValidationRunnerTests.cpp
    │  └─ Validation/
    │     ├─ BlueprintNamingRule.h

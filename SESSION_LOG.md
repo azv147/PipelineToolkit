@@ -780,6 +780,25 @@ BP_EnemyTest  → PASS
 
 ---
 
+## 2026-10-03 — Rule / Writer 合同测试实现与验证
+
+- 工作区开始时干净，实际 HEAD 为 `e2e075b feat(validation): add Headless Validation Commandlet`；只确认本地 Git，不推断远程 push。
+- 新增两个 `WITH_DEV_AUTOMATION_TESTS` 测试文件。Rule 使用合成 FAssetData 验证结果与建议；Writer 解析实际输出字段，验证字符往返、空 Run 和普通文件阻挡目录时的写入失败诊断。GUID 目录通过作用域退出清理，包含提前失败路径。现有 Runner 和所有生产代码未修改。
+- 沙箱内首次构建退出 1，未提供完整诊断；获准写入 UE / 用户缓存后的实际构建成功。全组测试 3 项成功，独立重跑新增测试 2 项成功；成功进程均退出 0，报告内各测试 0 错误 / 0 警告。
+- 首次测试进程在测试开始前崩溃，`Null assigned to TNotNull`，退出 -1073741571；失败日志和退出码保留为 All.log / AllExit.json。简化为此前成功参数后两轮通过，不推断具体参数导致崩溃。历史启动 Condition failed 仍出现，未定位或修复。
+- 四个 Content 资产运行前后 SHA-256 一致，无临时测试目录残留。证据见 `Saved/Automation/ValidationContractsEvidence/`：Build.log、AllRetry/index.json、Repeat/index.json、各日志 / 退出码、AssetsBefore.json、Verification.json。运行产物不提交。
+- 文档及静态检查：git diff --check、双语合同测试状态一致性。架构和生产边界未变化，因此不改 ARCHITECTURE。没有 commit / push；没有重跑 Commandlet 场景或人工 Editor UI 验收。V3.1 Python 编排仍准备中、尚未实现。
+
+实际成功命令（PowerShell）：
+
+```powershell
+& 'D:/Epic Games/UE_5.8/Engine/Build/BatchFiles/Build.bat' PipelineToolkitEditor Win64 Development '-Project=D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject' -WaitMutex -NoHotReloadFromIDE
+& 'D:/Epic Games/UE_5.8/Engine/Binaries/Win64/UnrealEditor-Cmd.exe' 'D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject' -unattended -NullRHI -nosplash '-ExecCmds=Automation RunTests PipelineToolkit.Validation' '-TestExit=Automation Test Queue Empty' '-ReportExportPath=D:/Epic Games/UEProjects/PipelineToolkit/Saved/Automation/ValidationContractsEvidence/AllRetry' '-abslog=D:/Epic Games/UEProjects/PipelineToolkit/Saved/Automation/ValidationContractsEvidence/AllRetry.log'
+& 'D:/Epic Games/UE_5.8/Engine/Binaries/Win64/UnrealEditor-Cmd.exe' 'D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject' -unattended -NullRHI -nosplash '-ExecCmds=Automation RunTests PipelineToolkit.Validation.BlueprintNamingRule+PipelineToolkit.Validation.ReportWriter' '-TestExit=Automation Test Queue Empty' '-ReportExportPath=D:/Epic Games/UEProjects/PipelineToolkit/Saved/Automation/ValidationContractsEvidence/Repeat' '-abslog=D:/Epic Games/UEProjects/PipelineToolkit/Saved/Automation/ValidationContractsEvidence/Repeat.log'
+```
+
+---
+
 # English Version
 > Chronological development record. Keep this file append-oriented; summarize older history rather than rewriting it into project state.
 
@@ -1509,3 +1528,15 @@ Commands actually completed successfully (PowerShell):
 - Actually inspected Git status and recent commits, existing Commandlet source, Results.json, and Manual Pass.json. Existing evidence is not claimed as newly passing test runs.
 - Preserved the preexisting Test_Player.uasset modification. Earlier automated-run asset hashes do not imply an asset-clean current worktree. No C++ or asset changes, commit, or push in this session.
 - Documentation verification: git diff --check and bilingual stage/task consistency checks. Remaining: V3.1 implementation and actual acceptance, then separate CI planning. Historical startup Condition failed remains unresolved.
+
+---
+
+## 2026-10-03 — Rule / Writer Contract Test Implementation and Verification
+
+- The starting worktree was clean; actual HEAD was `e2e075b feat(validation): add Headless Validation Commandlet`. This confirms local Git only, not a remote push.
+- Added two `WITH_DEV_AUTOMATION_TESTS` files. Rule tests use synthetic FAssetData for results and suggestions. Writer tests parse actual JSON fields and verify character round trips, empty runs, and write-failure diagnostics using an ordinary file as a directory blocker. Scope-exit cleanup owns only the GUID directory, including early failure paths. Existing Runner tests and all production code are unchanged.
+- The initial sandboxed build exited 1 without full diagnostics; the approved build with UE / user-cache access succeeded. Full-suite execution passed 3 tests; an independent repeat passed 2 new tests. Both successful processes exited 0, with 0 errors / 0 warnings per test.
+- The first test process crashed before tests started: `Null assigned to TNotNull`, exit -1073741571. All.log / AllExit.json retain failure evidence. Both runs passed using simplified, previously successful flags; no individual flag is claimed to cause the crash. Historical startup Condition failed recurred and remains unresolved.
+- All four Content asset SHA-256 hashes were unchanged, with no temporary test directories left. Evidence under `Saved/Automation/ValidationContractsEvidence/`: Build.log, AllRetry/index.json, Repeat/index.json, logs / exit codes, AssetsBefore.json, and Verification.json. Runtime artifacts are not committed.
+- Documentation/static verification: git diff --check and bilingual contract-test state consistency. ARCHITECTURE is unchanged because architecture and production boundaries did not change. No commit / push, Commandlet-case rerun, or manual Editor UI acceptance occurred. V3.1 Python orchestration is still preparation, not implemented.
+- Actual successful commands are recorded in the matching Chinese entry above: `Build.bat PipelineToolkitEditor Win64 Development` with the project, `-WaitMutex -NoHotReloadFromIDE`; `UnrealEditor-Cmd.exe` with the project and `-unattended -NullRHI -nosplash`, the Validation group / two-test filters, queue-empty exit, and separate AllRetry / Repeat report and log paths.
