@@ -309,11 +309,11 @@ Commandlet 只承担 CLI 参数解析、Runner 调用、Writer 调用及退出�
 
 ---
 
-### 4.2 V3.1 Python 编排边界（准备中）
+### 4.2 V3.1 Python 编排边界（已实现）
 
-V3.0-B 于 2026-10-03 获用户确认验收完成。下一切片计划用标准库脚本启动现有 Commandlet，转发参数和日志，消费 schema 1 报告并输出摘要。Python 不发现资产、不执行规则、不修改资产，也不自动构建 UE；CI 后续独立接入。
+V3.0-B 于 2026-10-03 获用户确认验收完成。V3.1 使用标准库脚本启动现有 Commandlet，转发参数和日志，消费 schema 1 报告并输出摘要。Python 不发现资产、不执行规则、不修改资产，也不自动构建 UE；CI 后续独立接入。
 
-UE 退出码 0 / 1 时读取本次报告，2 时不消费可能遗留的旧报告；脚本参数、启动、异常退出与报告消费错误返回 2。具体 CLI 和验收合同见 `PROJECT_STATE.md`，当前尚未实现。
+UE 退出码 0 / 1 时读取本次报告，2 时不消费可能遗留的旧报告；脚本参数、启动、异常退出与报告消费错误返回 2。调用前后比较报告修改时间 / 大小，拒绝未更新报告而不删除旧文件。读取 UTF-8 / UTF-16 BOM，检查摘要与退出码一致性，不复制规则语义；同一报告路径只用于串行运行。具体 CLI 与验收见 `PROJECT_STATE.md`。
 
 ---
 
@@ -900,11 +900,11 @@ The Commandlet owns only CLI parsing, Runner invocation, Writer invocation, and 
 
 ---
 
-### 4.2 V3.1 Python Orchestration Boundary (preparation)
+### 4.2 V3.1 Python Orchestration Boundary (implemented)
 
-The user confirmed V3.0-B acceptance on 2026-10-03. The next slice plans a standard-library script to launch the existing Commandlet, forward parameters and logs, consume schema 1 reports, and print a summary. Python does not discover assets, execute rules, mutate assets, or build UE automatically. CI follows separately.
+The user confirmed V3.0-B acceptance on 2026-10-03. V3.1 uses a standard-library script to launch the existing Commandlet, forward parameters and logs, consume schema 1 reports, and print a summary. Python does not discover assets, execute rules, mutate assets, or build UE automatically. CI follows separately.
 
-UE exits 0 / 1 gate reading the current report; exit 2 does not consume a possible old report. Script argument, launch, abnormal-exit, and report-consumption errors return 2. See `PROJECT_STATE.md` for CLI and acceptance contracts; implementation has not started.
+UE exits 0 / 1 gate reading the current report; exit 2 does not consume a possible old report. Script argument, launch, abnormal-exit, and report-consumption errors return 2. Compare report modification time / size before and after invocation to reject unchanged reports without deleting old files. Read UTF-8 / UTF-16 BOM and check summary / exit-code consistency without duplicating rules. Use a shared report path only for sequential runs. See `PROJECT_STATE.md` for CLI and acceptance contracts.
 
 ---
 

@@ -178,7 +178,7 @@ Commandlet ────┘
                   └── Exit Code
 ```
 
-V3.0-A 与 V3.0-B 已完成验收；当前准备 V3.1 本地 Python 编排，尚未实现。
+V3.0-A 与 V3.0-B 已完成验收；V3.1 本地 Python 编排已实现并通过自动验证，待人工验收。
 
 #### V3.0-A — 已完成：Validation Runner Refactor
 
@@ -257,7 +257,7 @@ FValidationRun
 - 实际 Editor 构建成功；整个 Validation 组 3 项成功，新增测试重跑 2 项成功；两轮进程退出码均为 0，各测试 0 错误 / 0 警告。四个 `.uasset` SHA-256 不变，临时目录已清理；生产接口、实现和 schema 未修改。
 - 证据：`Saved/Automation/ValidationContractsEvidence/` 的 `Build.log`、`AllRetry/index.json`、`Repeat/index.json`、各轮日志 / 退出码和 `Verification.json`。
 - 首次带 `-nosound -NoShaderCompile -nop4` 的 Automation 启动在测试开始前崩溃（`Null assigned to TNotNull`，进程 -1073741571）。改用此前成功的 `-unattended -NullRHI -nosplash` 参数后两轮成功；未定位崩溃原因，不声明参数因果关系。启动 `Condition failed` 仍存在且未解决。
-- 下一节点仍为 V3.1 Python 编排，准备中，尚未实现。本次没有重新执行 Commandlet 场景或人工 UI 回归，没有 commit / push。
+- Rule / Writer 合同测试已完成；V3.1 Python 编排的当前状态与后续人工验收见第 6 节。
 
 ## 3. 当前重要文件
 
@@ -354,17 +354,20 @@ git log --oneline -5
 
 ---
 
-## 6. Codex 当前交接任务 — V3.1（准备中，尚未实现）
+## 6. Codex 当前交接任务 — V3.1（已实现，待人工验收）
 
-V3.0-B 已验收关闭。下一节点计划新增 `Scripts/run_validation.py`，仅使用 Python 标准库，将手工调用变为可重复执行的本地自动化入口。以下为开发合同，不代表已实现：
+已新增 `Scripts/run_validation.py` 与 `Scripts/tests/test_run_validation.py`，仅使用 Python 标准库，将手工调用变为可重复执行的本地自动化入口。运行需要系统 Python 3.9+；实际验证版本为 3.14.3，不使用 UE 内置 Python。以下为已实现调用合同：
 
 - CLI：必填 `--ue-cmd`、`--project`；可选 `--scope`、`--blueprint-prefix`、`--report-path`，默认值沿用 Commandlet，相对报告路径以项目目录为基准。
 - 使用参数列表启动现有 Commandlet，不通过 shell 拼接命令；支持路径中的空格并转发 UE 日志。
 - UE 返回 0 / 1 时读取本次 schema 1 报告，显示资产总数和 PASS / FAIL / SKIP；返回 2 时不消费可能遗留的旧报告。
+- 比较报告运行前后的修改时间（纳秒）与大小，拒绝缺失或未更新的报告；不删除旧报告。支持 UTF-8 BOM / UTF-16 BOM，检查工具标识、摘要类型、计数 / 数组长度与退出码一致性，不重新执行 Rule。相同报告路径只用于串行运行。
 - 保留 0 / 1 / 2 合同；脚本参数错误、启动失败、异常进程退出、报告缺失 / 无法解析 / schema 不支持统一返回 2，并说明原因。
 - Python 只编排进程与消费报告，不实现 Rule / Discovery、不修改资产或 C++ 验证语义、不重设计 JSON。此切片不自动构建 UE、不加入 CI 或通用框架。
 - 验收：通过脚本实际运行默认 Fixture 得到 4 项 / PASS 2 / FAIL 1 / SKIP 1、退出码 1；Characters 得到 PASS 1、退出码 0；空配置、不可写报告目标及无效 UE 路径返回 2；带空格路径通过，失败不误读旧报告，资产无修改。
-- 顺序：实现脚本 → 实际进程验证 → 人工验收 → 再单独确定 CI 执行环境与报告归档。
+- 实际验证：11 项 unittest 通过；8 个脚本入口场景通过（Default 1、Passing 0、Prefix 1、BlankScope 2、BlankPrefixStale 2、BlankReport 2、WriteFailure 2、InvalidUE 2），含空格相对路径和绝对路径通过；报告计数正确，错误场景无摘要，四个资产哈希不变。证据见 `Saved/Automation/V3Python/Results.json`、各 console.txt 与 `Verification.json`。
+- 初次沙箱单元测试受临时目录权限限制；正常 Windows 权限运行通过。未重跑 C++ 构建 / 原生 Automation / 人工 UI；生产代码与资产未修改，没有 commit / push。
+- 待完成：按 README 用法人工验证默认 / Characters / 错误场景与旧报告处理，确认后关闭 V3.1，再单独确定 CI 执行环境与报告归档。
 
 历史启动日志中的 `Condition failed` 仍为未定位观察，不因本次人工验收被标记为已修复。
 
@@ -525,7 +528,7 @@ Commandlet ────┘
                   └── Exit Code
 ```
 
-V3.0-A and V3.0-B acceptance is complete. V3.1 local Python orchestration is being prepared, not implemented.
+V3.0-A and V3.0-B acceptance is complete. V3.1 local Python orchestration is implemented and automated verification passed; manual acceptance is pending.
 
 #### V3.0-A — complete: Validation Runner Refactor
 
@@ -604,7 +607,7 @@ FValidationRun
 - Actual Editor build succeeded. The full Validation group passed 3 tests; repeat execution passed 2 new tests. Both processes exited 0, with 0 errors / 0 warnings per test. All four `.uasset` SHA-256 hashes were unchanged, and temporary directories were cleaned. Production interfaces, implementations, and schema were unchanged.
 - Evidence: `Saved/Automation/ValidationContractsEvidence/` contains `Build.log`, `AllRetry/index.json`, `Repeat/index.json`, logs / exit codes, and `Verification.json`.
 - The initial Automation launch with `-nosound -NoShaderCompile -nop4` crashed before tests started (`Null assigned to TNotNull`, exit -1073741571). Both runs succeeded using the previously successful `-unattended -NullRHI -nosplash` flags. The crash cause is unresolved; no causal claim about individual flags is made. Startup `Condition failed` remains present and unresolved.
-- Next is still V3.1 Python orchestration, preparation only. No Commandlet-case rerun, manual UI regression, commit, or push occurred in this session.
+- Rule / Writer contract tests are complete; see section 6 for current V3.1 Python orchestration status and remaining manual acceptance.
 
 ## 3. Important Files
 
@@ -703,16 +706,19 @@ Do not record planned work as completed work.
 
 ---
 
-## 6. Current Codex Handoff — V3.1 (preparation, not implemented)
+## 6. Current Codex Handoff — V3.1 (implemented, manual acceptance pending)
 
-V3.0-B acceptance is closed. Plan `Scripts/run_validation.py`, using only the Python standard library, to turn manual invocation into a repeatable local automation entry point. The following is a development contract, not implemented behavior:
+Added `Scripts/run_validation.py` and `Scripts/tests/test_run_validation.py`, using only the Python standard library, to turn manual invocation into a repeatable local automation entry point. Requires system Python 3.9+; actually verified with 3.14.3, not UE's embedded Python. The following is the implemented invocation contract:
 
 - CLI: require `--ue-cmd` and `--project`; offer `--scope`, `--blueprint-prefix`, and `--report-path` with Commandlet defaults. Resolve relative report paths from the project directory.
 - Launch the existing Commandlet with an argument list without shell concatenation; support spaces in paths and forward UE logs.
 - On UE exit 0 / 1, read the current schema 1 report and print asset / PASS / FAIL / SKIP counts. On exit 2, do not consume a possible old report.
+- Compare pre/post report modification time (nanoseconds) and size; reject missing or unchanged reports without deleting old files. Support UTF-8 BOM / UTF-16 BOM. Check tool identity, summary types, counts / array length, and exit-code consistency without reevaluating rules. Use the same report path only for sequential runs.
 - Preserve the 0 / 1 / 2 contract. Script argument errors, launch failures, abnormal process exits, missing / unreadable reports, and unsupported schemas return 2 with diagnostics.
 - Python only orchestrates processes and consumes reports: no rule / discovery implementation, asset mutation, C++ validation semantics changes, or JSON redesign. No automatic UE build, CI, or generic framework in this slice.
 - Acceptance: actual script runs produce default 4 assets / PASS 2 / FAIL 1 / SKIP 1 with exit 1, and Characters PASS 1 with exit 0. Blank configuration, unwritable report targets, and invalid UE paths return 2. Paths containing spaces work; failures do not consume stale reports; assets remain unchanged.
-- Sequence: implement script → verify actual processes → manual acceptance → separately choose CI execution infrastructure and report archiving.
+- Actual verification: 11 unittest tests passed. Eight script-entry cases passed (Default 1, Passing 0, Prefix 1, BlankScope 2, BlankPrefixStale 2, BlankReport 2, WriteFailure 2, InvalidUE 2), including relative paths containing spaces and absolute paths. Report counts were correct, error cases printed no summary, and all four asset hashes were unchanged. Evidence: `Saved/Automation/V3Python/Results.json`, console.txt files, and `Verification.json`.
+- Initial sandboxed unit tests hit temporary-directory permissions; normal Windows execution passed. No C++ build / native Automation / manual UI rerun, production code or asset changes, commit, or push occurred.
+- Remaining: manually verify default / Characters / error cases and stale-report handling using README usage; close V3.1 after confirmation, then separately choose CI execution infrastructure and report archiving.
 
 The historical startup `Condition failed` observation remains unresolved; this manual acceptance does not establish a fix.

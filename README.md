@@ -65,7 +65,28 @@ Commandlet ────┘
 
 2026-10-03 已补齐 Rule / Writer 原生 Automation 合同测试：Validation 组 3 项通过，新增测试重跑 2 项通过。详细验证与启动问题见 `PROJECT_STATE.md`。
 
-下一节点为 V3.1 本地 Python 编排（准备中，尚未实现）：调用 Commandlet、读取 JSON 摘要并保留退出码；CI 后续独立接入。开发合同与验收标准见 `PROJECT_STATE.md`。
+V3.1 本地 Python 编排已实现，11 项单元测试与 8 个入口场景通过，待人工验收：调用 Commandlet、读取 JSON 摘要并保留退出码；CI 后续独立接入。具体证据与验收标准见 `PROJECT_STATE.md`。
+
+## Python 本地入口与验收
+
+先构建 Editor，使用系统 Python 3.9+，关闭 Editor 后在项目根目录运行：
+
+```powershell
+$ue = 'D:/Epic Games/UE_5.8/Engine/Binaries/Win64/UnrealEditor-Cmd.exe'
+$project = 'D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject'
+python -B Scripts/run_validation.py --ue-cmd $ue --project $project
+$LASTEXITCODE
+python -B Scripts/run_validation.py --ue-cmd $ue --project $project --scope /Game/ValidationTest/Characters --report-path 'Saved/ValidationReports/Python Manual Pass.json'
+$LASTEXITCODE
+python -B Scripts/run_validation.py --ue-cmd $ue --project $project --blueprint-prefix= --report-path 'Saved/ValidationReports/Python Manual Pass.json'
+$LASTEXITCODE
+```
+
+依次预期：退出 1，摘要 4 / PASS 2 / FAIL 1 / SKIP 1；退出 0，摘要 1 / PASS 1；退出 2，有诊断、没有结果摘要，不读取或删除上一步的旧报告。可选 `--scope`、`--blueprint-prefix`、`--report-path` 默认值与 Commandlet 一致；相对报告路径以项目目录为基准。绝对路径和含空格路径均支持，同一报告路径串行使用。
+
+再用不存在的 `--ue-cmd` 路径验证启动前检查，用普通文件阻挡报告父目录验证写入失败，均应返回 2。确认 Content 资产没有变化后完成验收。
+
+单元测试：`python -B -m unittest discover -s Scripts/tests -v`。测试不启动 UE，使用 Saved 下独立临时目录并清理。脚本只消费 schema 1，不自动构建、不修改资产。
 
 ## Commandlet 使用
 
@@ -169,7 +190,28 @@ Commandlet ────┘
 
 On 2026-10-03 native Rule / Writer Automation contract tests were added: the Validation group passed 3 tests, and a repeat passed 2 new tests. See `PROJECT_STATE.md` for verification details and startup issues.
 
-Next is V3.1 local Python orchestration (preparation, not implemented): invoke the Commandlet, summarize JSON, and preserve exit codes. CI follows separately. See `PROJECT_STATE.md` for the development contract and acceptance criteria.
+V3.1 local Python orchestration is implemented: 11 unit tests and 8 entry-point cases passed; manual acceptance is pending. It invokes the Commandlet, summarizes JSON, and preserves exit codes. CI follows separately. See `PROJECT_STATE.md` for evidence and acceptance criteria.
+
+## Local Python Entry and Acceptance
+
+Build the Editor first. Use system Python 3.9+, close the Editor, and run from the project root:
+
+```powershell
+$ue = 'D:/Epic Games/UE_5.8/Engine/Binaries/Win64/UnrealEditor-Cmd.exe'
+$project = 'D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject'
+python -B Scripts/run_validation.py --ue-cmd $ue --project $project
+$LASTEXITCODE
+python -B Scripts/run_validation.py --ue-cmd $ue --project $project --scope /Game/ValidationTest/Characters --report-path 'Saved/ValidationReports/Python Manual Pass.json'
+$LASTEXITCODE
+python -B Scripts/run_validation.py --ue-cmd $ue --project $project --blueprint-prefix= --report-path 'Saved/ValidationReports/Python Manual Pass.json'
+$LASTEXITCODE
+```
+
+Expected in order: exit 1, summary 4 / PASS 2 / FAIL 1 / SKIP 1; exit 0, summary 1 / PASS 1; exit 2, diagnostics without a result summary, without consuming or deleting the preceding report. Optional `--scope`, `--blueprint-prefix`, and `--report-path` default to Commandlet values. Relative report paths start from the project directory. Absolute paths and spaces are supported; use a shared report path sequentially.
+
+Also test a nonexistent `--ue-cmd` path for pre-launch checks and an ordinary file blocking the report parent directory for write failure; both should return 2. Confirm Content assets remain unchanged before completing acceptance.
+
+Unit tests: `python -B -m unittest discover -s Scripts/tests -v`. They do not launch UE and clean their isolated temporary directories under Saved. The script consumes schema 1 only, without automatic builds or asset mutation.
 
 ## Commandlet Usage
 

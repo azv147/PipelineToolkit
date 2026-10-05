@@ -799,6 +799,18 @@ BP_EnemyTest  → PASS
 
 ---
 
+## 2026-10-03 — V3.1 本地 Python 编排实现与验证
+
+- 开始时工作区干净，实际 HEAD 为 `93f1b8a test(validation): add Rule And Writer Contract Tests`，不据此推断远程同步。
+- 新增 Scripts/run_validation.py 和标准库 unittest；显式传入 UE / 项目路径，转发 Scope / Prefix / ReportPath，用参数列表和 shell=False 启动原有 Commandlet并转发日志。保持 0/1/2 合同，检查报告修改时间 / 大小、schema / 工具 / 摘要一致性，支持 UTF-8 和 UTF-16 BOM；不删除旧报告。同一报告路径按串行调用设计。
+- 11 项单元测试实际通过，覆盖成功 / 规则失败 / 执行失败 / 异常退出、参数与路径空格、旧报告 / 缺失 / 损坏报告、schema 与摘要错误、编码和空 Run。初次沙箱执行因 Python 临时目录权限失败，正常 Windows 权限执行通过；测试目录位于 Saved 并仅清理自身临时文件。
+- 8 个真实脚本入口场景通过：Default=1、Passing=0、Prefix=1、BlankScope=2、BlankPrefixStale=2、BlankReport=2、WriteFailure=2、InvalidUE=2。前三者实际调用 UE 并验证报告计数，错误场景无摘要；旧报告在空 Prefix 失败后仍保留。报告含空格相对路径和绝对路径通过，四个资产 SHA-256 与运行前一致。
+- 实际单元测试命令：`python -B -m unittest discover -s Scripts/tests -v`（Python 3.14.3）。入口基础命令：`python -B Scripts/run_validation.py --ue-cmd "D:/Epic Games/UE_5.8/Engine/Binaries/Win64/UnrealEditor-Cmd.exe" --project "D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject"`；全部场景参数与进程退出码见 Saved/Automation/V3Python/Results.json。各 console.txt 和 Verification.json 保存验证证据，运行产物不提交。
+- 更新五份双语文档，README 提供人工验收命令；.gitignore 忽略 Python 字节码。实际执行 git diff --check。未修改 C++ 或资产，未重跑 C++ 构建 / 原生 Automation，没有 commit / push。
+- 剩余：人工验收 V3.1，确认后关闭切片；CI 留给独立阶段。此前 UE 启动 Null assigned to TNotNull / Condition failed 未定位，不声称本次解决。
+
+---
+
 # English Version
 > Chronological development record. Keep this file append-oriented; summarize older history rather than rewriting it into project state.
 
@@ -1540,3 +1552,15 @@ Commands actually completed successfully (PowerShell):
 - All four Content asset SHA-256 hashes were unchanged, with no temporary test directories left. Evidence under `Saved/Automation/ValidationContractsEvidence/`: Build.log, AllRetry/index.json, Repeat/index.json, logs / exit codes, AssetsBefore.json, and Verification.json. Runtime artifacts are not committed.
 - Documentation/static verification: git diff --check and bilingual contract-test state consistency. ARCHITECTURE is unchanged because architecture and production boundaries did not change. No commit / push, Commandlet-case rerun, or manual Editor UI acceptance occurred. V3.1 Python orchestration is still preparation, not implemented.
 - Actual successful commands are recorded in the matching Chinese entry above: `Build.bat PipelineToolkitEditor Win64 Development` with the project, `-WaitMutex -NoHotReloadFromIDE`; `UnrealEditor-Cmd.exe` with the project and `-unattended -NullRHI -nosplash`, the Validation group / two-test filters, queue-empty exit, and separate AllRetry / Repeat report and log paths.
+
+---
+
+## 2026-10-03 — V3.1 Local Python Orchestration Implementation and Verification
+
+- The starting worktree was clean; actual HEAD was `93f1b8a test(validation): add Rule And Writer Contract Tests`, without implying remote synchronization.
+- Added Scripts/run_validation.py and standard-library unittest coverage. Explicit UE / project paths, forwarded Scope / Prefix / ReportPath, argument-list invocation with shell=False, and forwarded UE logs. Preserves 0/1/2, checks report modification time / size and schema / tool / summary consistency, and supports UTF-8 / UTF-16 BOM without deleting old reports. Shared report paths are designed for sequential calls.
+- Eleven unit tests actually passed, covering success / rule failure / execution failure / abnormal exit, arguments and spaces, stale / missing / corrupt reports, schema / summary errors, encodings, and empty runs. Initial sandboxed runs failed on Python temporary-directory permissions; normal Windows execution passed. Tests use Saved and clean only their own temporary files.
+- Eight actual script-entry cases passed: Default=1, Passing=0, Prefix=1, BlankScope=2, BlankPrefixStale=2, BlankReport=2, WriteFailure=2, InvalidUE=2. The first three launched UE and report counts were verified; errors printed no summary. The preceding report remained after blank-Prefix failure. Relative paths with spaces and absolute paths passed; all four asset SHA-256 hashes matched the pre-run snapshot.
+- Actual unit command: `python -B -m unittest discover -s Scripts/tests -v` (Python 3.14.3). Base entry: `python -B Scripts/run_validation.py --ue-cmd "D:/Epic Games/UE_5.8/Engine/Binaries/Win64/UnrealEditor-Cmd.exe" --project "D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject"`. Saved/Automation/V3Python/Results.json records every case's arguments and exit code; console.txt files and Verification.json retain evidence. Runtime artifacts are not committed.
+- Updated five bilingual documents and README manual acceptance commands; .gitignore excludes Python bytecode. Actually ran git diff --check. No C++ or asset changes, C++ build / native Automation rerun, commit, or push.
+- Remaining: manual V3.1 acceptance before closing the slice; CI remains separate. Earlier UE startup Null assigned to TNotNull / Condition failed remains unresolved, not claimed fixed.

@@ -136,9 +136,9 @@ CLI parameters → FValidationConfig → FValidationRunner
 
 已新增原生 Automation 合同测试，Validation 组 3 项通过，新测试独立重跑 2 项通过，两轮进程均为 0；资产哈希不变，临时目录已清理。首次 Automation 启动在测试前出现 `Null assigned to TNotNull` 崩溃，简化启动参数后成功，原因未定位；历史 `Condition failed` 仍未解决。证据见 `Saved/Automation/ValidationContractsEvidence/`。现有 Runner 测试与生产代码保持不变。
 
-### V3.1 — 本地 Python 编排（准备中，尚未实现）
+### V3.1 — 本地 Python 编排（已实现，待人工验收）
 
-下一节点新增最小标准库脚本 `Scripts/run_validation.py`，调用现有 Commandlet、读取 schema 1 报告并输出摘要。CLI、退出码和验收合同见 `PROJECT_STATE.md` 第 6 节。Python 不承担 Rule / Discovery，不修改资产或 JSON schema，不自动构建 UE；CI 留给后续独立切片。
+已新增标准库脚本 `Scripts/run_validation.py` 与 unittest，调用现有 Commandlet、读取 schema 1 报告并输出摘要。11 项单元测试及 8 个实际入口场景通过，资产哈希不变；人工验收待完成。CLI、退出码和报告新鲜度检查见 `PROJECT_STATE.md` 第 6 节。Python 不承担 Rule / Discovery，不修改资产或 JSON schema，不自动构建 UE；CI 留给后续独立切片。
 
 ## 5. V3.0-B 验收基线（已关闭）
 
@@ -154,7 +154,7 @@ CLI parameters → FValidationConfig → FValidationRunner
 
 Commandlet 第一版只验证，不 Auto-Fix，不修改资产。V3.1 允许实现最小 Python wrapper；不得加入 GitHub Actions、SQLite、Blender、AI/RAG、第二验证引擎、通用 Rule/Fix Framework 或 JSON schema 重设计。
 
-V3.0-B 已验收关闭，运行证据见 `Saved/Automation/V3Commandlet/`。V3.1 当前仅准备，不得记为已实现或测试通过。历史启动 `Condition failed` 仍未定位。
+V3.0-B 已验收关闭，运行证据见 `Saved/Automation/V3Commandlet/`。V3.1 已实现并通过自动验证，证据见 `Saved/Automation/V3Python/`；人工验收前不关闭切片。历史启动 `Condition failed` 仍未定位。
 
 ---
 
@@ -344,9 +344,9 @@ On 2026-10-03 the user confirmed V3.0-B acceptance. Manual acceptance is user-co
 
 Native Automation contract tests were added: the Validation group passed 3 tests, and an independent repeat passed 2 new tests, both processes exiting 0. Asset hashes were unchanged and temporary directories cleaned. The initial Automation startup crashed before tests with `Null assigned to TNotNull`; simplified startup flags succeeded, but the cause is unresolved. Historical `Condition failed` is also unresolved. Evidence: `Saved/Automation/ValidationContractsEvidence/`. Existing Runner tests and production code are unchanged.
 
-### V3.1 — Local Python Orchestration (preparation, not implemented)
+### V3.1 — Local Python Orchestration (implemented, manual acceptance pending)
 
-The next node adds the minimal standard-library `Scripts/run_validation.py` to invoke the existing Commandlet, consume schema 1 reports, and print a summary. See section 6 of `PROJECT_STATE.md` for CLI, exit-code, and acceptance contracts. Python does not own rules / discovery, mutate assets, redesign JSON, or build UE automatically. CI remains a later separate slice.
+Added standard-library `Scripts/run_validation.py` and unittest coverage to invoke the existing Commandlet, consume schema 1 reports, and print a summary. Eleven unit tests and eight actual entry-point cases passed, with unchanged asset hashes; manual acceptance is pending. See section 6 of `PROJECT_STATE.md` for CLI, exit codes, and freshness checks. Python does not own rules / discovery, mutate assets, redesign JSON, or build UE automatically. CI remains a later separate slice.
 
 ## 5. V3.0-B Acceptance Baseline (closed)
 
@@ -362,7 +362,7 @@ The next node adds the minimal standard-library `Scripts/run_validation.py` to i
 
 The first Commandlet validates only: no Auto-Fix or asset mutation. V3.1 may implement the minimal Python wrapper. Do not add GitHub Actions, SQLite, Blender, AI/RAG, a second validation engine, a generic Rule/Fix Framework, or a JSON schema redesign.
 
-V3.0-B acceptance is closed; evidence is under `Saved/Automation/V3Commandlet/`. V3.1 is preparation only; do not record it as implemented or tested. Historical startup `Condition failed` remains unresolved.
+V3.0-B acceptance is closed; evidence is under `Saved/Automation/V3Commandlet/`. V3.1 implementation and automated verification are complete, with evidence under `Saved/Automation/V3Python/`. Do not close the slice before manual acceptance. Historical startup `Condition failed` remains unresolved.
 
 ---
 
