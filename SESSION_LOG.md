@@ -811,6 +811,18 @@ BP_EnemyTest  → PASS
 
 ---
 
+## 2026-10-05 — V3.1 人工验收完成 / V3.2 CI 实现与本地验证
+
+- 用户明确确认 V3.1 验收完成，据此关闭该切片。人工结论来自用户；本次开始工作区干净，HEAD 为 c322741，未据此推断远程 push。
+- 新增手动触发 GitHub workflow 与 Windows PowerShell CI 脚本。自托管 Windows / X64 / ue-5.8，UE_ROOT 变量指定 UE 5.8.2，Python可执行文件可配置；checkout / 调用脚本 / always 归档分工，不复制验证规则。产物 GUID 隔离，记录阶段命令与退出码，核对 Automation 报告和 Fixture 摘要、资产哈希。
+- 实际全链路通过：Python 版本、11 项单元测试、Editor 构建、3 项原生 Automation、默认 Fixture 预期 1、Characters 预期 0，整体 0；最终日志格式修正后再次运行整体 0。无效引擎路径实际返回 1 并保存 Failure.txt。首次 Python Get-Command 返回两个路径导致失败，已取首个可执行文件修正；失败证据保留。
+- 证据：Saved/Automation/CI/503dc204b517403cb3a2938039375931、feabe7639a044aa7989b52c988741001（成功）；4e4419ccd0984194b0e484785540f15f（初次失败）、cd1cb980d1cb4c3b905050288d3fafef（无效引擎）。FinalRun.console.txt 保存最终运行输出。成功运行四个资产哈希前后不变。
+- 实际命令：`powershell -NoProfile -ExecutionPolicy Bypass -File Scripts/run_ci.ps1 -UERoot 'D:/Epic Games/UE_5.8'`，负向检查改为 NoSuchEngine。PowerShell AST 解析无错误，工作流 trigger / shell / labels 静态检查与 git diff --check；没有执行远端 GitHub YAML 或上传 artifact。
+- 更新五份双语文档，README 给出本地运行和 runner / 仓库变量 / 手动触发 / artifact 验收步骤。未修改生产 C++、Python验证入口或资产，未注册 runner、commit 或 push。本机未检测到运行中的 runner，机器选择仍待用户回复。
+- 剩余：配置已选 runner，工作流进入默认分支，实际远端运行并下载产物后才能关闭 V3.2。历史 Condition failed 在本轮 Automation 启动中仍出现；未修复或掩盖。
+
+---
+
 # English Version
 > Chronological development record. Keep this file append-oriented; summarize older history rather than rewriting it into project state.
 
@@ -1564,3 +1576,15 @@ Commands actually completed successfully (PowerShell):
 - Actual unit command: `python -B -m unittest discover -s Scripts/tests -v` (Python 3.14.3). Base entry: `python -B Scripts/run_validation.py --ue-cmd "D:/Epic Games/UE_5.8/Engine/Binaries/Win64/UnrealEditor-Cmd.exe" --project "D:/Epic Games/UEProjects/PipelineToolkit/PipelineToolkit.uproject"`. Saved/Automation/V3Python/Results.json records every case's arguments and exit code; console.txt files and Verification.json retain evidence. Runtime artifacts are not committed.
 - Updated five bilingual documents and README manual acceptance commands; .gitignore excludes Python bytecode. Actually ran git diff --check. No C++ or asset changes, C++ build / native Automation rerun, commit, or push.
 - Remaining: manual V3.1 acceptance before closing the slice; CI remains separate. Earlier UE startup Null assigned to TNotNull / Condition failed remains unresolved, not claimed fixed.
+
+---
+
+## 2026-10-05 — V3.1 Manual Acceptance Complete / V3.2 CI Implementation and Local Verification
+
+- The user explicitly confirmed V3.1 acceptance, closing that slice. Manual acceptance is user-confirmed. The starting worktree was clean at HEAD c322741, without implying a remote push.
+- Added a manually triggered GitHub workflow and Windows PowerShell CI script. Self-hosted Windows / X64 / ue-5.8, UE_ROOT selecting UE 5.8.2, configurable Python executable; checkout / script invocation / always archiving remain separate without duplicating rules. GUID artifacts retain stage commands / exits, validate Automation and fixture reports, and compare asset hashes.
+- The actual full local chain passed: Python version, 11 unit tests, Editor build, 3 native Automation tests, default fixture expected 1, and Characters expected 0; overall 0. After log formatting was corrected, a final full run also exited 0. Invalid engine input exited 1 with Failure.txt. Initial Get-Command returned two Python paths and failed; selecting the first executable fixed it, with failure evidence retained.
+- Evidence: Saved/Automation/CI/503dc204b517403cb3a2938039375931 and feabe7639a044aa7989b52c988741001 (success); 4e4419ccd0984194b0e484785540f15f (initial failure), cd1cb980d1cb4c3b905050288d3fafef (invalid engine). FinalRun.console.txt captures final output. All four asset hashes matched before / after successful runs.
+- Actual command: `powershell -NoProfile -ExecutionPolicy Bypass -File Scripts/run_ci.ps1 -UERoot 'D:/Epic Games/UE_5.8'`; negative check used NoSuchEngine. PowerShell AST parsing, workflow trigger / shell / label static checks, and git diff --check passed. Remote GitHub YAML execution and artifact upload were not performed.
+- Updated five bilingual documents; README covers local execution, runner / variables / manual dispatch / artifact acceptance. No production C++, Python validation entry, or asset changes; no runner registration, commit, or push. No running local runner was detected; the machine choice awaits user input.
+- Remaining: configure the chosen runner, put the workflow on the default branch, execute remotely, and download artifacts before closing V3.2. Historical Condition failed recurred during Automation startup; not fixed or hidden.

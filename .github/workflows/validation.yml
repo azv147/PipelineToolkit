@@ -1,0 +1,38 @@
+name: UE Validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pipeline-toolkit-ue-validation
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: [self-hosted, Windows, X64, ue-5.8]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build and validate
+        id: ci
+        shell: powershell
+        env:
+          UE_ROOT: ${{ vars.UE_ROOT }}
+          PYTHON_COMMAND: ${{ vars.PYTHON_COMMAND }}
+        run: |
+          & ./Scripts/run_ci.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Archive reports and logs
+        if: ${{ always() && steps.ci.outputs.artifact_dir != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.ci.outputs.artifact_dir }}
+          if-no-files-found: error
+          retention-days: 14
