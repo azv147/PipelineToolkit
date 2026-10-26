@@ -3,7 +3,7 @@
 > Repository-level rules for Codex and other coding agents.
 > 本文件是 Codex / Agent 在仓库内开发时必须遵守的长期规则。
 >
-> Last updated / 最后更新: 2026-10-05
+> Last updated / 最后更新: 2026-10-11
 
 ---
 
@@ -140,9 +140,9 @@ CLI parameters → FValidationConfig → FValidationRunner
 
 已新增标准库脚本 `Scripts/run_validation.py` 与 unittest，调用现有 Commandlet、读取 schema 1 报告并输出摘要。11 项单元测试及 8 个实际入口场景通过，资产哈希不变。2026-10-05 用户确认 V3.1 人工验收完成，据此关闭；该人工结论来自用户确认。Python 不承担 Rule / Discovery，不修改资产或 JSON schema，也不自行构建 UE。
 
-### V3.2 — 最小 CI（已实现，本地链路通过，待远端验收）
+### V3.2 — 最小 CI（已完成）
 
-新增 `Scripts/run_ci.ps1` 和 `.github/workflows/validation.yml`。顺序为 Python 测试 → Editor 构建 → UE Automation → 默认 Fixture 烟雾测试（预期 1）→ Characters（预期 0）；失败使流水线退出 1。只手动触发，Windows 自托管 runner 标签为 `ue-5.8`，配置 `UE_ROOT`（UE 5.8.2）和可选 `PYTHON_COMMAND`。逐阶段日志 / 退出码 / JSON / 资产哈希保存在独立 Saved/Automation/CI/GUID 目录，成功失败均归档。未注册 runner、未 push、未声称远端运行成功。
+新增 `Scripts/run_ci.ps1` 和 `.github/workflows/validation.yml`。顺序为 Python 测试 → Editor 构建 → UE Automation → 默认 Fixture 烟雾测试（预期 1）→ Characters（预期 0）；失败使流水线退出 1。只手动触发，Windows 自托管 runner 标签为 `ue-5.8`，配置 `UE_ROOT`（UE 5.8.2）和可选 `PYTHON_COMMAND`。逐阶段日志 / 退出码 / JSON / 资产哈希保存在独立 Saved/Automation/CI/GUID 目录，成功失败均归档。2026-10-11 用户确认 CI 人工验收通过，据此关闭 V3.2；远端验收结论来自用户确认，本次 Agent 未重跑 CI 或独立复核成功远端产物。
 
 ## 5. V3.0-B 验收基线（已关闭）
 
@@ -158,7 +158,9 @@ CLI parameters → FValidationConfig → FValidationRunner
 
 Commandlet 第一版只验证，不 Auto-Fix，不修改资产。V3.2 允许最小 GitHub Actions 和本地 CI 脚本；不得加入 SQLite、Blender、AI/RAG、第二验证引擎、通用 Rule/Fix Framework 或 JSON schema 重设计。Python 仍只负责验证入口，构建 / 测试顺序由 CI 编排。
 
-V3.0-B / V3.1 已验收关闭，证据见 `Saved/Automation/V3Commandlet/`、`Saved/Automation/V3Python/`。V3.2 待实际 GitHub 执行与产物下载验收，不能用本地通过代替远端通过。历史启动 `Condition failed` 仍未定位。
+V3.0-A / V3.0-B / Rule / Writer 合同测试 / V3.1 / V3.2 已完成。历史本地证据见 `Saved/Automation/V3Commandlet/`、`Saved/Automation/ValidationContractsEvidence/`、`Saved/Automation/V3Python/` 和 `Saved/Automation/CI/`；V3.2 人工验收来自用户确认。历史启动 `Condition failed` 与一次 `Null assigned to TNotNull` 崩溃仍未解决，验收完成不代表已修复。
+
+下一切片建议补齐 Python 边界测试并新增 GitHub 托管 Windows 的轻量测试 workflow，随后单独定位启动异常；这些均尚未实施，用户本次仅授权文档同步与交接。具体任务、文件和验收标准见 `PROJECT_STATE.md` 第 6 节，静态排查线索见 `SESSION_LOG.md` 的 2026-10-11 记录。保持现有 UE 自托管完整流水线和生产语义，不新增长期记忆文档。
 
 ---
 
@@ -352,9 +354,9 @@ Native Automation contract tests were added: the Validation group passed 3 tests
 
 Added standard-library `Scripts/run_validation.py` and unittest coverage to invoke the existing Commandlet, consume schema 1 reports, and print a summary. Eleven unit tests and eight actual entry-point cases passed, with unchanged asset hashes. On 2026-10-05 the user confirmed manual V3.1 acceptance, closing the slice; manual acceptance is user-confirmed. Python does not own rules / discovery, mutate assets, redesign JSON, or build UE itself.
 
-### V3.2 — Minimal CI (implemented, local chain passed, remote acceptance pending)
+### V3.2 — Minimal CI (complete)
 
-Added `Scripts/run_ci.ps1` and `.github/workflows/validation.yml`. Sequence: Python tests → Editor build → UE Automation → default-fixture smoke (expected 1) → Characters (expected 0). Failures exit the pipeline with 1. Manual trigger only; Windows self-hosted runner label `ue-5.8`, `UE_ROOT` pointing to UE 5.8.2, and optional `PYTHON_COMMAND`. Stage logs / exits / JSON / asset hashes live in isolated Saved/Automation/CI/GUID directories and are archived on success or failure. No runner registration, push, or claimed successful remote run.
+Added `Scripts/run_ci.ps1` and `.github/workflows/validation.yml`. Sequence: Python tests → Editor build → UE Automation → default-fixture smoke (expected 1) → Characters (expected 0). Failures exit the pipeline with 1. Manual trigger only; Windows self-hosted runner label `ue-5.8`, `UE_ROOT` pointing to UE 5.8.2, and optional `PYTHON_COMMAND`. Stage logs / exits / JSON / asset hashes live in isolated Saved/Automation/CI/GUID directories and are archived on success or failure. On 2026-10-11 the user confirmed manual CI acceptance, closing V3.2. Remote acceptance is user-confirmed; the agent did not rerun CI or independently verify successful remote artifacts in this session.
 
 ## 5. V3.0-B Acceptance Baseline (closed)
 
@@ -370,7 +372,9 @@ Added `Scripts/run_ci.ps1` and `.github/workflows/validation.yml`. Sequence: Pyt
 
 The first Commandlet validates only: no Auto-Fix or asset mutation. V3.2 may add minimal GitHub Actions and local CI orchestration, without SQLite, Blender, AI/RAG, a second validation engine, generic Rule/Fix Framework, or JSON schema redesign. Python remains the validation entry; CI owns build / test sequencing.
 
-V3.0-B / V3.1 acceptance is closed; evidence is under `Saved/Automation/V3Commandlet/` and `Saved/Automation/V3Python/`. V3.2 requires actual GitHub execution and artifact-download acceptance; local success does not establish remote success. Historical startup `Condition failed` remains unresolved.
+V3.0-A / V3.0-B / Rule / Writer contract tests / V3.1 / V3.2 are complete. Historical local evidence is under `Saved/Automation/V3Commandlet/`, `Saved/Automation/ValidationContractsEvidence/`, `Saved/Automation/V3Python/`, and `Saved/Automation/CI/`; V3.2 manual acceptance is user-confirmed. Historical startup `Condition failed` and one `Null assigned to TNotNull` crash remain unresolved; acceptance does not establish a fix.
+
+The suggested next slice adds Python boundary tests and a lightweight GitHub-hosted Windows test workflow, followed by a separate startup investigation. None is implemented; the user's current authorization covers documentation synchronization and handoff only. Tasks, files, and acceptance criteria are in section 6 of `PROJECT_STATE.md`; static investigation leads are in the 2026-10-11 `SESSION_LOG.md` entry. Preserve the full self-hosted UE pipeline and production semantics; do not add a long-lived memory document.
 
 ---
 

@@ -823,6 +823,23 @@ BP_EnemyTest  → PASS
 
 ---
 
+## 2026-10-11 — V3.2 验收关闭 / 文档同步与简短交接
+
+- 用户确认 CI 人工验收通过，据此关闭 V3.2；远端验收来自用户确认，本次未重跑或独立复核成功远端 artifact。此前“待远端验收”的历史记录保留，当前事实以本条和 `PROJECT_STATE.md` 为准。
+- 工作区开始时干净，实际本地 HEAD 为 `97928cf ci(validation): add GitHub Actions Validation Workflow`；该检查不证明远端同步。本次仅同步 README / PROJECT_STATE / AGENTS 状态，校正 ARCHITECTURE 过时描述，追加双语日志；未修改代码、workflow 或资产，未 commit / push。
+- 静态核对了 Python 入口、11 项测试、CI workflow、历史日志和本地 UE 源码。`Engine/Source/Runtime/Launch/Private/LaunchEngineLoop.cpp` 在启动调用 `RunSmokeTests()`；Core 的 `Private/Misc/AutomationTest.cpp` 执行 SmokeFilter 测试，`Public/Misc/LowLevelTestAdapter.h:130` 的失败 CHECK 统一输出 `Condition failed`。历史成功日志中的该错误先于三个项目测试，之后 BlueprintNamingRule / ReportWriter / Runner 均成功；这不是本次重跑结果。
+- 异常线索：`Core/Tests/Experimental/UnifiedError/UnifiedErrorTests.cpp` 包含固定英文字符串断言，而历史日志里的对应输出为中文，语言环境相关性仍是推断，未进行 `-culture=en` 对照。历史 `Null assigned to TNotNull` 的报错入口为 `Core/Private/Misc/NotNull.cpp:12`；简化启动参数后成功不证明某个参数是原因，崩溃根因仍未定位。
+- 文档验证：`git diff --check`、五份文档变更范围、双语状态与待办一致性检查。未执行 build、Python unittest、UE Automation、语言对照或远端 CI；不新增通过结论。
+
+### 简短交接
+
+- **从哪里恢复**：先读 `PROJECT_STATE.md` 第 6 节、`ARCHITECTURE.md`、`AGENTS.md`；V3.0–V3.2 已关闭，当前只有文档同步完成。
+- **下一建议切片，未实施**：Python 边界测试补齐与整理 + 独立托管 Windows Python workflow。相关文件：`Scripts/tests/test_run_validation.py`、`Scripts/run_validation.py`、`.github/workflows/`；保留现有完整 UE 自托管链路。验收需实际 unittest、最低 / 当前 Python 版本和 GitHub 事件执行证据，具体标准见状态文档。
+- **随后单独排查，未执行**：默认语言 / 英文启动对照，再定位引擎失败断言；历史 Fatal 逐参数复现并抓首次调用栈。证据入口：`Saved/Automation/CI/feabe7639a044aa7989b52c988741001/AutomationEngine.log`、`Saved/Automation/ValidationContractsEvidence/All.log`。
+- **执行边界**：新会话先选择任务切片；当前仅授权文档同步。保持验证语义、schema 1、资产和已有人工报告不变，不自动 commit / push，不另建长期记忆文档。
+
+---
+
 # English Version
 > Chronological development record. Keep this file append-oriented; summarize older history rather than rewriting it into project state.
 
@@ -1588,3 +1605,20 @@ Commands actually completed successfully (PowerShell):
 - Actual command: `powershell -NoProfile -ExecutionPolicy Bypass -File Scripts/run_ci.ps1 -UERoot 'D:/Epic Games/UE_5.8'`; negative check used NoSuchEngine. PowerShell AST parsing, workflow trigger / shell / label static checks, and git diff --check passed. Remote GitHub YAML execution and artifact upload were not performed.
 - Updated five bilingual documents; README covers local execution, runner / variables / manual dispatch / artifact acceptance. No production C++, Python validation entry, or asset changes; no runner registration, commit, or push. No running local runner was detected; the machine choice awaits user input.
 - Remaining: configure the chosen runner, put the workflow on the default branch, execute remotely, and download artifacts before closing V3.2. Historical Condition failed recurred during Automation startup; not fixed or hidden.
+
+---
+
+## 2026-10-11 — V3.2 Acceptance Closed / Documentation Sync and Brief Handoff
+
+- The user confirmed manual CI acceptance, closing V3.2. Remote acceptance is user-confirmed; no rerun or independent verification of successful remote artifacts occurred in this session. Historical pending-remote entries are preserved; this entry and `PROJECT_STATE.md` represent current truth.
+- The starting worktree was clean; actual local HEAD was `97928cf ci(validation): add GitHub Actions Validation Workflow`, without establishing remote synchronization. This session only synchronized README / PROJECT_STATE / AGENTS status, corrected stale ARCHITECTURE descriptions, and appended bilingual history. No code, workflow, or asset changes; no commit / push.
+- Statically inspected the Python entry, 11 tests, CI workflow, historical logs, and local UE source. `Engine/Source/Runtime/Launch/Private/LaunchEngineLoop.cpp` calls `RunSmokeTests()` at startup. Core `Private/Misc/AutomationTest.cpp` runs SmokeFilter tests; failed CHECK expressions in `Public/Misc/LowLevelTestAdapter.h:130` emit the generic `Condition failed`. These errors precede the three project tests in the historical successful log; BlueprintNamingRule / ReportWriter / Runner subsequently succeed. This is not a new test run.
+- Investigation leads: `Core/Tests/Experimental/UnifiedError/UnifiedErrorTests.cpp` contains fixed English string assertions while corresponding historical log output is Chinese. Language dependence remains an inference; no `-culture=en` comparison ran. The historical `Null assigned to TNotNull` reporting entry is `Core/Private/Misc/NotNull.cpp:12`. Success after simplifying several launch flags does not establish any individual flag's causal role; the crash root cause remains unresolved.
+- Documentation verification: `git diff --check`, scope of the five document changes, and bilingual status / pending-task consistency checks. No build, Python unittest, UE Automation, language comparison, or remote CI ran; no new passing runtime claims.
+
+### Brief Handoff
+
+- **Resume from**: section 6 of `PROJECT_STATE.md`, `ARCHITECTURE.md`, and `AGENTS.md`. V3.0–V3.2 are closed; only documentation synchronization is completed now.
+- **Suggested next slice, unimplemented**: organize / extend Python boundary tests and add a separate hosted Windows Python workflow. Files: `Scripts/tests/test_run_validation.py`, `Scripts/run_validation.py`, and `.github/workflows/`. Preserve the full self-hosted UE chain. Acceptance requires actual unittest, minimum / current Python versions, and GitHub event execution evidence; see the state document for criteria.
+- **Separate later investigation, unexecuted**: compare default / English startup, then identify failed engine assertions. Reproduce the historical Fatal one flag at a time and capture its first stack. Evidence entry points: `Saved/Automation/CI/feabe7639a044aa7989b52c988741001/AutomationEngine.log` and `Saved/Automation/ValidationContractsEvidence/All.log`.
+- **Execution boundaries**: select a task slice in the new session; current authorization covers documentation synchronization only. Preserve validation semantics, schema 1, assets, and existing manual reports. No automatic commit / push or new long-lived memory document.

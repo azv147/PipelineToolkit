@@ -3,7 +3,7 @@
 > 当前真实状态文档。项目事实发生变化时更新。
 > Current-truth document. Update when verified project facts change.
 >
-> 最后更新 / Last updated: 2026-10-05
+> 最后更新 / Last updated: 2026-10-11
 
 ---
 
@@ -41,7 +41,7 @@
 V0  Editor Plugin + Slate Toolkit        ✅
 V1  Asset Registry + Validation Core     ✅
 V2  Production Validation Workflow       ✅
-V3  Headless Validation & Automation     ▶ Active
+V3  Headless Validation & Automation     ✅ V3.0–V3.2
 ```
 
 ### V0 — 已完成
@@ -160,11 +160,11 @@ Revert Last Fix
 - Revert 是明确的 Editor Workflow
 - 当前不建立通用 Fix Framework
 
-### V3 — 当前阶段
+### V3 — V3.0–V3.2 已验收，进入维护切片
 
 V3 的总体目标：
 
-> 将现有 Editor Validation Workflow 推进到可无 UI 执行的 Automation Boundary，同时保证 Editor UI 与未来 Commandlet 共享同一套验证语义。
+> 将现有 Editor Validation Workflow 推进到可无 UI 执行的 Automation Boundary，同时保证 Editor UI 与 Commandlet 共享同一套验证语义。
 
 目标架构：
 
@@ -178,7 +178,7 @@ Commandlet ────┘
                   └── Exit Code
 ```
 
-V3.0-A、V3.0-B 与 V3.1 已完成验收；V3.2 最小 CI 已实现，本地链路通过，待远端验收。
+V3.0-A、V3.0-B、Rule / Writer 合同测试、V3.1 与 V3.2 均已完成。2026-10-11 用户确认 CI 人工验收通过，据此关闭 V3.2；本次 Agent 未重跑 CI 或独立复核成功远端产物。后续维护任务尚未实施，见第 6 节简短交接。
 
 #### V3.0-A — 已完成：Validation Runner Refactor
 
@@ -257,7 +257,7 @@ FValidationRun
 - 实际 Editor 构建成功；整个 Validation 组 3 项成功，新增测试重跑 2 项成功；两轮进程退出码均为 0，各测试 0 错误 / 0 警告。四个 `.uasset` SHA-256 不变，临时目录已清理；生产接口、实现和 schema 未修改。
 - 证据：`Saved/Automation/ValidationContractsEvidence/` 的 `Build.log`、`AllRetry/index.json`、`Repeat/index.json`、各轮日志 / 退出码和 `Verification.json`。
 - 首次带 `-nosound -NoShaderCompile -nop4` 的 Automation 启动在测试开始前崩溃（`Null assigned to TNotNull`，进程 -1073741571）。改用此前成功的 `-unattended -NullRHI -nosplash` 参数后两轮成功；未定位崩溃原因，不声明参数因果关系。启动 `Condition failed` 仍存在且未解决。
-- Rule / Writer 合同测试已完成；V3.1 Python 编排的当前状态与后续人工验收见第 6 节。
+- Rule / Writer 合同测试已完成；Python / CI 当前状态与维护交接见第 6 节。
 
 ## 3. 当前重要文件
 
@@ -324,7 +324,7 @@ git log --oneline -5
 - JSON 是 `FValidationRun` 的输出边界，不创建第二套 Validation Model。
 - Auto-Fix / Revert 当前属于 Editor Workflow。
 - Commandlet 第一版只做 Validation，不自动修改资产。
-- Python 未来只做 orchestration / glue，不承载业务 Rule。
+- Python 只做 orchestration / glue，不承载业务 Rule。
 - 不引入独立 Validation 可执行程序。
 - 不为了展示而构建 Dashboard / 大型 Framework / AI-RAG 架构。
 - 重要设计应以生产问题解释，而不是以技术名词解释。
@@ -354,7 +354,15 @@ git log --oneline -5
 
 ---
 
-## 6. Codex 当前交接任务 — V3.2（已实现，待远端验收）
+## 6. Codex 当前交接 — 验收后维护
+
+### 简短交接（2026-10-11）
+
+- **完成状态**：V3.0–V3.2 已关闭；CI 人工验收来自用户确认。原有通过记录是历史证据，本次未运行 build / Python 测试 / UE Automation / 远端 CI。
+- **建议下一切片，未实施**：整理 `Scripts/tests/test_run_validation.py`，补已有报告成功覆盖、报告读取 / 编码错误、缺字段 / 错类型与退出码 1 配合零 FAIL 的反例；新增独立 GitHub 托管 Windows 的 Python 测试 workflow，用显式 Python 版本验证最低支持版本 3.9 和当前使用版本 3.14。现有 `Scripts/run_ci.ps1` 与 `.github/workflows/validation.yml` 保留完整 UE 自托管手动链路。
+- **该切片验收**：`python -B -m unittest discover -s Scripts/tests -v` 通过；托管任务无需 UE，在 push / PR / 手动触发下实际运行并能显示测试失败；记录版本、退出码和日志。未实际运行的版本或事件不得标记通过。
+- **另开异常定位切片，未执行**：在相同 Automation 参数下对照默认语言与 `-culture=en`；若仍有 `Condition failed`，单独运行引擎 `System.Core.Experimental.UnifiedError` 测试并定位失败断言。中文输出与固定英文断言的相关性目前仅为静态推断。`Null assigned to TNotNull` 单独从成功基线逐一恢复参数，稳定复现后抓首次 Fatal 调用栈；尚无具体参数因果结论。
+- **证据 / 边界**：历史成功日志 `Saved/Automation/CI/feabe7639a044aa7989b52c988741001/AutomationEngine.log`，历史崩溃 `Saved/Automation/ValidationContractsEvidence/All.log`；具体源码线索见 `SESSION_LOG.md` 的 2026-10-11 记录。保持 C++ 语义、schema 1 和资产不变，不自动 commit / push。当前仅授权文档同步；新会话选择切片后再实施，不另建长期记忆文档。
 
 ### V3.1 — 已完成
 
@@ -370,10 +378,10 @@ git log --oneline -5
 - Python 只编排进程与消费报告，不实现 Rule / Discovery、不修改资产或 C++ 验证语义、不重设计 JSON。此切片不自动构建 UE、不加入 CI 或通用框架。
 - 验收：通过脚本实际运行默认 Fixture 得到 4 项 / PASS 2 / FAIL 1 / SKIP 1、退出码 1；Characters 得到 PASS 1、退出码 0；空配置、不可写报告目标及无效 UE 路径返回 2；带空格路径通过，失败不误读旧报告，资产无修改。
 - 实际验证：11 项 unittest 通过；8 个脚本入口场景通过（Default 1、Passing 0、Prefix 1、BlankScope 2、BlankPrefixStale 2、BlankReport 2、WriteFailure 2、InvalidUE 2），含空格相对路径和绝对路径通过；报告计数正确，错误场景无摘要，四个资产哈希不变。证据见 `Saved/Automation/V3Python/Results.json`、各 console.txt 与 `Verification.json`。
-- V3.1 实现阶段（2026-10-03）：初次沙箱单元测试受临时目录权限限制，正常 Windows 权限运行通过；当时未重跑 C++ 构建 / 原生 Automation / 人工 UI，未修改生产代码或资产，没有 commit / push。V3.2 的本次构建与测试见下文。
-- V3.1 人工验收已获用户确认，当前转入 V3.2。
+- V3.1 实现阶段（2026-10-03）：初次沙箱单元测试受临时目录权限限制，正常 Windows 权限运行通过；当时未重跑 C++ 构建 / 原生 Automation / 人工 UI，未修改生产代码或资产，没有 commit / push。V3.2 的历史构建与测试见下文。
+- V3.1 人工验收已获用户确认并关闭。
 
-### V3.2 — 最小 CI
+### V3.2 — 最小 CI（已完成）
 
 - 已新增 `Scripts/run_ci.ps1` 和手动触发的 `.github/workflows/validation.yml`，复用原 Python 入口，不修改 C++ / 规则 / JSON schema。
 - Windows 自托管 runner 标签：`self-hosted, Windows, X64, ue-5.8`；安装 UE 5.8.2、C++ 构建工具、系统 Python 3.9+、Git；工作流使用 Windows PowerShell，无需 PowerShell 7。
@@ -381,7 +389,7 @@ git log --oneline -5
 - 流程：Python 版本检查与 11 项测试 → Editor 构建 → 原生 Validation Automation 3 项 → 默认 Fixture 预期退出 1 / 计数 4,2,1,1 → Characters 预期退出 0 / 计数 1,1,0,0。Automation 必须生成报告并包含三个成功测试；错误或缺报告判失败。
 - CI 脚本成功退出 0，任一阶段失败退出 1；不改变 Python / Commandlet 的 0/1/2 合同。独立 `Saved/Automation/CI/<GUID>/` 保存阶段命令、退出码、日志、JSON 与资产哈希，失败保留诊断；GitHub 用 always 归档当前目录，保留 14 天。
 - 实际本地全链路通过（六阶段，整体 0），四个资产哈希不变；无效引擎路径实际退出 1 并写 Failure.txt。证据：`Saved/Automation/CI/503dc204b517403cb3a2938039375931/`；另一次完整验证记录在 `Saved/Automation/CI/FinalRun.console.txt`。初次 Python 路径匹配返回多个结果的问题已修正。
-- 远端未执行：未检测到运行中的本机 runner，未注册 runner、commit 或 push。待用户确定机器、配置 runner 与变量，将工作流提交到默认分支后手动运行并下载 artifact；通过后才能关闭 V3.2。当前仅 workflow 结构静态检查及 PowerShell 解析 / 本地运行，不声称 GitHub YAML 或 artifact 上传已运行。
+- 2026-10-11 用户明确确认 CI 人工验收通过，据此关闭 V3.2。远端验收结论来自用户确认，不是本次 Agent 重跑或独立复核成功 artifact；2026-10-05 的“待远端验收”属于当时状态，历史记录保留在 `SESSION_LOG.md`。
 - 历史启动 `Condition failed` 仍出现在 Automation 日志，原因未解决；测试报告本身通过，不声称启动日志无错误。
 
 历史启动日志中的 `Condition failed` 仍为未定位观察，不因本次人工验收被标记为已修复。
@@ -422,7 +430,7 @@ The project is intended to demonstrate:
 V0  Editor Plugin + Slate Toolkit        ✅
 V1  Asset Registry + Validation Core     ✅
 V2  Production Validation Workflow       ✅
-V3  Headless Validation & Automation     ▶ Active
+V3  Headless Validation & Automation     ✅ V3.0–V3.2
 ```
 
 ### V0 — complete
@@ -527,7 +535,7 @@ explicit rename back
 
 Auto-Fix/Revert remains an Editor workflow; no generic Fix Framework is being introduced.
 
-### V3 — active
+### V3 — V3.0–V3.2 accepted; maintenance slices follow
 
 V3 aims to move the validation workflow across the automation boundary while keeping one validation semantics path shared by Editor UI and Commandlet.
 
@@ -543,7 +551,7 @@ Commandlet ────┘
                   └── Exit Code
 ```
 
-V3.0-A, V3.0-B, and V3.1 acceptance is complete. V3.2 minimal CI is implemented and the local chain passed; remote acceptance is pending.
+V3.0-A, V3.0-B, Rule / Writer contract tests, V3.1, and V3.2 are complete. On 2026-10-11 the user confirmed manual CI acceptance, closing V3.2; the agent did not rerun CI or independently verify successful remote artifacts in this session. Follow-up maintenance tasks are unimplemented; see the brief handoff in section 6.
 
 #### V3.0-A — complete: Validation Runner Refactor
 
@@ -622,7 +630,7 @@ FValidationRun
 - Actual Editor build succeeded. The full Validation group passed 3 tests; repeat execution passed 2 new tests. Both processes exited 0, with 0 errors / 0 warnings per test. All four `.uasset` SHA-256 hashes were unchanged, and temporary directories were cleaned. Production interfaces, implementations, and schema were unchanged.
 - Evidence: `Saved/Automation/ValidationContractsEvidence/` contains `Build.log`, `AllRetry/index.json`, `Repeat/index.json`, logs / exit codes, and `Verification.json`.
 - The initial Automation launch with `-nosound -NoShaderCompile -nop4` crashed before tests started (`Null assigned to TNotNull`, exit -1073741571). Both runs succeeded using the previously successful `-unattended -NullRHI -nosplash` flags. The crash cause is unresolved; no causal claim about individual flags is made. Startup `Condition failed` remains present and unresolved.
-- Rule / Writer contract tests are complete; see section 6 for current V3.1 Python orchestration status and remaining manual acceptance.
+- Rule / Writer contract tests are complete; see section 6 for current Python / CI status and maintenance handoff.
 
 ## 3. Important Files
 
@@ -691,7 +699,7 @@ Never infer build/commit/push state from documentation alone.
 - JSON is an output of `FValidationRun`, not a second validation model.
 - Auto-Fix/Revert remains an Editor workflow.
 - The first Commandlet validates only; it does not mutate assets.
-- Python is future orchestration/glue, not the rule layer.
+- Python owns orchestration/glue, not the rule layer.
 - Do not introduce a separate validation executable.
 - Do not add dashboards, large frameworks, or AI/RAG architecture for appearance.
 - Explain design choices through production problems, not buzzwords.
@@ -721,7 +729,15 @@ Do not record planned work as completed work.
 
 ---
 
-## 6. Current Codex Handoff — V3.2 (implemented, remote acceptance pending)
+## 6. Current Codex Handoff — Maintenance After Acceptance
+
+### Brief Handoff (2026-10-11)
+
+- **Completed**: V3.0–V3.2 are closed; manual CI acceptance is user-confirmed. Existing passing records are historical evidence; no build / Python tests / UE Automation / remote CI ran in this session.
+- **Suggested next slice, unimplemented**: organize `Scripts/tests/test_run_validation.py`; add successful overwrite of an existing report, report read / encoding errors, missing / wrongly typed fields, and exit 1 with zero FAIL. Add a separate GitHub-hosted Windows Python test workflow with explicit versions covering the minimum supported 3.9 and currently used 3.14. Keep `Scripts/run_ci.ps1` and `.github/workflows/validation.yml` as the full manually triggered self-hosted UE chain.
+- **Acceptance for that slice**: `python -B -m unittest discover -s Scripts/tests -v` passes; the hosted job runs without UE on push / PR / manual dispatch and exposes test failures. Record versions, exits, and logs; do not mark unexecuted versions or events as passing.
+- **Separate startup investigation, unexecuted**: compare default language with `-culture=en` using otherwise identical Automation arguments. If `Condition failed` persists, run the engine `System.Core.Experimental.UnifiedError` tests separately and identify the failed assertion. Chinese output versus fixed English assertions is only a static inference. Investigate `Null assigned to TNotNull` separately by restoring flags one at a time from a successful baseline, then capture the first Fatal stack after stable reproduction; no individual flag has an established causal role.
+- **Evidence / boundaries**: historical successful log `Saved/Automation/CI/feabe7639a044aa7989b52c988741001/AutomationEngine.log`; historical crash `Saved/Automation/ValidationContractsEvidence/All.log`. Source leads are in the 2026-10-11 `SESSION_LOG.md` entry. Preserve C++ semantics, schema 1, and assets; no automatic commit / push. Current authorization covers documentation synchronization only; select a slice in the new session before implementation, without a new long-lived memory document.
 
 ### V3.1 — complete
 
@@ -737,10 +753,10 @@ Added `Scripts/run_validation.py` and `Scripts/tests/test_run_validation.py`, us
 - Python only orchestrates processes and consumes reports: no rule / discovery implementation, asset mutation, C++ validation semantics changes, or JSON redesign. No automatic UE build, CI, or generic framework in this slice.
 - Acceptance: actual script runs produce default 4 assets / PASS 2 / FAIL 1 / SKIP 1 with exit 1, and Characters PASS 1 with exit 0. Blank configuration, unwritable report targets, and invalid UE paths return 2. Paths containing spaces work; failures do not consume stale reports; assets remain unchanged.
 - Actual verification: 11 unittest tests passed. Eight script-entry cases passed (Default 1, Passing 0, Prefix 1, BlankScope 2, BlankPrefixStale 2, BlankReport 2, WriteFailure 2, InvalidUE 2), including relative paths containing spaces and absolute paths. Report counts were correct, error cases printed no summary, and all four asset hashes were unchanged. Evidence: `Saved/Automation/V3Python/Results.json`, console.txt files, and `Verification.json`.
-- V3.1 implementation phase (2026-10-03): initial sandboxed unit tests hit temporary-directory permissions; normal Windows execution passed. That phase had no C++ build / native Automation / manual UI rerun, production code or asset changes, commit, or push. See below for this session's V3.2 build and tests.
-- V3.1 manual acceptance is user-confirmed; current work moves to V3.2.
+- V3.1 implementation phase (2026-10-03): initial sandboxed unit tests hit temporary-directory permissions; normal Windows execution passed. That phase had no C++ build / native Automation / manual UI rerun, production code or asset changes, commit, or push. See below for the historical V3.2 build and tests.
+- V3.1 manual acceptance is user-confirmed and closed.
 
-### V3.2 — Minimal CI
+### V3.2 — Minimal CI (complete)
 
 - Added `Scripts/run_ci.ps1` and manually triggered `.github/workflows/validation.yml`, reusing the Python entry without C++ / rule / schema changes.
 - Windows self-hosted runner labels: `self-hosted, Windows, X64, ue-5.8`. Install UE 5.8.2, C++ build tools, system Python 3.9+, and Git. The workflow uses Windows PowerShell; PowerShell 7 is unnecessary.
@@ -748,7 +764,7 @@ Added `Scripts/run_validation.py` and `Scripts/tests/test_run_validation.py`, us
 - Sequence: Python version / 11 unit tests → Editor build → 3 native Validation Automation tests → default fixture expected exit 1 / counts 4,2,1,1 → Characters expected exit 0 / counts 1,1,0,0. Automation must produce a report containing all three successful tests; errors or missing reports fail.
 - CI exits 0 on success and 1 on any failed stage, without changing Python / Commandlet 0/1/2. Isolated `Saved/Automation/CI/<GUID>/` directories hold stage commands, exits, logs, JSON, and asset hashes, retaining failure diagnostics. GitHub always archives the current directory with 14-day retention.
 - The actual local full chain passed (six stages, overall 0), with all four asset hashes unchanged. An invalid engine path exited 1 and wrote Failure.txt. Evidence: `Saved/Automation/CI/503dc204b517403cb3a2938039375931/`; a further full validation is recorded in `Saved/Automation/CI/FinalRun.console.txt`. The initial multiple-Python-path selection issue was corrected.
-- Remote execution has not occurred: no running local runner was detected; no runner registration, commit, or push. Choose the machine, configure the runner / variables, place the workflow on the default branch, manually run it, and download the artifact before closing V3.2. Only workflow structural checks, PowerShell parsing, and local execution are verified; GitHub YAML execution and artifact upload are not claimed.
+- On 2026-10-11 the user explicitly confirmed manual CI acceptance, closing V3.2. Remote acceptance is user-confirmed, not an agent rerun or independent verification of successful artifacts in this session. The 2026-10-05 pending-remote status was true at that time; its historical record remains in `SESSION_LOG.md`.
 - Historical startup `Condition failed` still appears in Automation logs and remains unresolved. The test report passed; the entire startup log is not claimed error-free.
 
 The historical startup `Condition failed` observation remains unresolved; this manual acceptance does not establish a fix.

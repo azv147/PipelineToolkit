@@ -22,7 +22,7 @@
 V0  Editor Plugin + Slate Toolkit        ✅
 V1  Asset Registry + Validation Core     ✅
 V2  Production Validation Workflow       ✅
-V3  Headless Validation & Automation     ▶ Active
+V3  Headless Validation & Automation     ✅ V3.0–V3.2
 ```
 
 V2 已完成并同步 GitHub。
@@ -65,7 +65,7 @@ Commandlet ────┘
 
 2026-10-03 已补齐 Rule / Writer 原生 Automation 合同测试：Validation 组 3 项通过，新增测试重跑 2 项通过。详细验证与启动问题见 `PROJECT_STATE.md`。
 
-V3.1 本地 Python 编排已完成，11 项单元测试与 8 个入口场景通过；用户于 2026-10-05 确认人工验收。V3.2 最小 CI 已实现并在本地通过完整链路，GitHub 远端执行与产物验收待完成。具体证据见 `PROJECT_STATE.md`。
+V3.1 本地 Python 编排已完成，11 项单元测试与 8 个入口场景通过；用户于 2026-10-05 确认人工验收。V3.2 最小 CI 已完成：本地全链路此前通过，用户于 2026-10-11 确认 CI 人工验收通过。该人工结论来自用户确认，本次未重跑 CI。当前进入维护切片，Python 测试补齐、托管测试 workflow 与启动异常定位均尚未实施；简短交接与证据来源见 `PROJECT_STATE.md` 第 6 节。
 
 ## 最小 CI（V3.2）
 
@@ -80,12 +80,12 @@ $LASTEXITCODE
 
 GitHub 远端配置与验收：
 
-1. 准备 Windows 自托管 runner，安装 UE 5.8.2、C++ 构建工具、Git、系统 Python 3.9+。按 [GitHub 注册说明](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/add-runners) 在仓库 Settings → Actions → Runners 注册最新 runner，添加标签 `ue-5.8`，确认在线。当前机器尚未由 Agent 注册。
+1. 准备 Windows 自托管 runner，安装 UE 5.8.2、C++ 构建工具、Git、系统 Python 3.9+。按 [GitHub 注册说明](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/add-runners) 在仓库 Settings → Actions → Runners 注册 runner，添加标签 `ue-5.8`，确认在线。
 2. 在 Actions Variables 配置 `UE_ROOT`（例如 `D:/Epic Games/UE_5.8`）；可选 `PYTHON_COMMAND` 为 Python 可执行文件路径，默认 python。
 3. 工作流提交到默认分支后，按 [手动触发说明](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)，在 Actions → UE Validation → Run workflow 执行。第一版只手动触发，不运行 PR / push 事件。
-4. 确认作业通过，下载 `validation-<run_id>-<attempt>` artifact，检查 Results.json 的六阶段通过、Automation 的三项成功、两个验证报告计数和资产哈希一致。失败时也应有对应阶段日志 / Failure.txt；artifact 保留 14 天。远端运行和 artifact 下载后才完成 V3.2 验收。
+4. 确认作业通过，下载 `validation-<run_id>-<attempt>` artifact，检查 Results.json 的六阶段通过、Automation 的三项成功、两个验证报告计数和资产哈希一致。失败时也应有对应阶段日志 / Failure.txt；artifact 保留 14 天。上述流程保留用于复现。
 
-本地链路已验证，runner 注册、远端调度和 artifact 上传尚未验证；不会自动 commit / push。
+V3.2 已根据用户于 2026-10-11 的人工验收确认关闭。启动 `Condition failed` 与历史 `Null assigned to TNotNull` 崩溃仍未解决；CI 验收不代表启动日志无错误。不会自动 commit / push。
 
 ## Python 本地入口与验收
 
@@ -127,7 +127,7 @@ $LASTEXITCODE
 - JSON 不复制 Validation Model
 - Auto-Fix / Revert 保持 Editor-only Workflow
 - 第一版 Commandlet 只 Validation，不自动修改 Asset
-- Python / CI 属于后续 orchestration 层
+- Python / CI 属于外部 orchestration 层
 
 ## 文档
 
@@ -167,7 +167,7 @@ Portfolio principle:
 V0  Editor Plugin + Slate Toolkit        ✅
 V1  Asset Registry + Validation Core     ✅
 V2  Production Validation Workflow       ✅
-V3  Headless Validation & Automation     ▶ Active
+V3  Headless Validation & Automation     ✅ V3.0–V3.2
 ```
 
 V2 is complete and synced to GitHub.
@@ -210,7 +210,7 @@ Commandlet ────┘
 
 On 2026-10-03 native Rule / Writer Automation contract tests were added: the Validation group passed 3 tests, and a repeat passed 2 new tests. See `PROJECT_STATE.md` for verification details and startup issues.
 
-V3.1 local Python orchestration is complete: 11 unit tests and 8 entry-point cases passed, and the user confirmed manual acceptance on 2026-10-05. V3.2 minimal CI is implemented and the full local chain passed; GitHub remote execution and artifact acceptance are pending. See `PROJECT_STATE.md` for evidence.
+V3.1 local Python orchestration is complete: 11 unit tests and 8 entry-point cases passed, and the user confirmed manual acceptance on 2026-10-05. V3.2 minimal CI is complete: the full local chain passed previously, and the user confirmed manual CI acceptance on 2026-10-11. Manual acceptance is user-confirmed; CI was not rerun in this session. Maintenance slices follow; Python boundary tests, a hosted test workflow, and startup investigation remain unimplemented. See section 6 of `PROJECT_STATE.md` for the brief handoff and evidence sources.
 
 ## Minimal CI (V3.2)
 
@@ -225,12 +225,12 @@ Expected overall exit 0: 11 Python tests, Editor build, 3 UE Automation tests, d
 
 GitHub remote setup and acceptance:
 
-1. Prepare a Windows self-hosted runner with UE 5.8.2, C++ build tools, Git, and system Python 3.9+. Follow [GitHub registration](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/add-runners) under repository Settings → Actions → Runners, install the latest runner, add label `ue-5.8`, and confirm it is online. The agent has not registered this machine.
+1. Prepare a Windows self-hosted runner with UE 5.8.2, C++ build tools, Git, and system Python 3.9+. Follow [GitHub registration](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/add-runners) under repository Settings → Actions → Runners, register the runner, add label `ue-5.8`, and confirm it is online.
 2. Set Actions variable `UE_ROOT` (for example `D:/Epic Games/UE_5.8`); optional `PYTHON_COMMAND` is the Python executable path, defaulting to python.
 3. After the workflow is committed to the default branch, follow [manual dispatch](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow) under Actions → UE Validation → Run workflow. The first version has no PR / push triggers.
-4. Confirm the job passes, download `validation-<run_id>-<attempt>`, and check six passing stages in Results.json, three successful Automation tests, both fixture report counts, and matching asset hashes. Failures should retain stage logs / Failure.txt too. Artifacts have 14-day retention. Remote execution and artifact-download acceptance are required to close V3.2.
+4. Confirm the job passes, download `validation-<run_id>-<attempt>`, and check six passing stages in Results.json, three successful Automation tests, both fixture report counts, and matching asset hashes. Failures should retain stage logs / Failure.txt too. Artifacts have 14-day retention. These instructions remain available for reproduction.
 
-The local chain is verified; runner registration, remote scheduling, and artifact upload are unverified. No automatic commit / push.
+V3.2 is closed based on the user's manual acceptance confirmation on 2026-10-11. Startup `Condition failed` and the historical `Null assigned to TNotNull` crash remain unresolved; CI acceptance does not establish error-free startup logs. No automatic commit / push.
 
 ## Local Python Entry and Acceptance
 
@@ -272,7 +272,7 @@ Exit codes: `0` means no rule failures and report success; `1` means rule failur
 - do not duplicate the validation model for JSON
 - keep Auto-Fix/Revert as an Editor-only workflow
 - first Commandlet validates only; it does not mutate assets
-- Python / CI remain later orchestration layers
+- Python / CI are external orchestration layers
 
 ## Documentation
 

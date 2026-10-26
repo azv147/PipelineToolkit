@@ -3,7 +3,7 @@
 > 本文记录长期架构护栏、边界和重要设计理由，不记录日常进度。
 > This document records durable architectural guardrails, boundaries, and design rationale rather than day-to-day progress.
 >
-> 最后更新 / Last updated: 2026-10-05
+> 最后更新 / Last updated: 2026-10-11
 
 ---
 
@@ -311,7 +311,7 @@ Commandlet 只承担 CLI 参数解析、Runner 调用、Writer 调用及退出�
 
 ### 4.2 V3.1 Python 编排边界（已实现）
 
-V3.0-B 于 2026-10-03 获用户确认验收完成。V3.1 使用标准库脚本启动现有 Commandlet，转发参数和日志，消费 schema 1 报告并输出摘要。Python 不发现资产、不执行规则、不修改资产，也不自动构建 UE；CI 后续独立接入。
+V3.1 使用标准库脚本启动现有 Commandlet，转发参数和日志，消费 schema 1 报告并输出摘要。Python 不发现资产、不执行规则、不修改资产，也不自动构建 UE；V3.2 由独立 CI 脚本负责构建与测试顺序。
 
 UE 退出码 0 / 1 时读取本次报告，2 时不消费可能遗留的旧报告；脚本参数、启动、异常退出与报告消费错误返回 2。调用前后比较报告修改时间 / 大小，拒绝未更新报告而不删除旧文件。读取 UTF-8 / UTF-16 BOM，检查摘要与退出码一致性，不复制规则语义；同一报告路径只用于串行运行。具体 CLI 与验收见 `PROJECT_STATE.md`。
 
@@ -321,7 +321,7 @@ UE 退出码 0 / 1 时读取本次报告，2 时不消费可能遗留的旧报�
 
 GitHub Actions 只负责 checkout、调用同一本地 PowerShell CI 脚本、归档产物。CI 脚本负责构建 / 测试次序、预期退出码、报告存在与摘要合同检查；Rule / Discovery 仍只在 C++ 中。默认 Fixture 有故意的规则 FAIL，作为预期退出 1 的烟雾测试；Characters 作为预期退出 0 的通过场景。基础设施 / 执行错误不得作为预期规则失败接受。
 
-第一版仅 workflow_dispatch，Windows 自托管 runner，安装好的 UE 5.8.2，不自动下载引擎。独立 GUID 产物目录避免使用旧报告；全链路前后核对资产哈希。当前 GitHub 远端验收仍待完成，本地通过不能代替远端证据。
+第一版仅 workflow_dispatch，Windows 自托管 runner，安装好的 UE 5.8.2，不自动下载引擎。独立 GUID 产物目录避免使用旧报告；全链路前后核对资产哈希。验收状态与证据来源见 `PROJECT_STATE.md`；本地运行证据与用户确认的远端人工验收分别记录。
 
 ---
 
@@ -453,7 +453,7 @@ Validation 不能把 Redirector 当作普通业务 Asset。
 
 ## 8. Module Boundary
 
-V3.0-A 将 `ProductionPipelineToolkit.uplugin` 的模块类型修正为 `Editor`，与 `UnrealEd` 等 Editor-only 依赖一致。Runner 可供未来 UE Editor Commandlet 复用，但当前不作为游戏 Runtime 代码。
+V3.0-A 将 `ProductionPipelineToolkit.uplugin` 的模块类型修正为 `Editor`，与 `UnrealEd` 等 Editor-only 依赖一致。Runner 已由 UE Editor Commandlet 复用，但当前不作为游戏 Runtime 代码。
 
 项目当前以 Editor Tool 为主。
 
@@ -910,7 +910,7 @@ The Commandlet owns only CLI parsing, Runner invocation, Writer invocation, and 
 
 ### 4.2 V3.1 Python Orchestration Boundary (implemented)
 
-The user confirmed V3.0-B acceptance on 2026-10-03. V3.1 uses a standard-library script to launch the existing Commandlet, forward parameters and logs, consume schema 1 reports, and print a summary. Python does not discover assets, execute rules, mutate assets, or build UE automatically. CI follows separately.
+V3.1 uses a standard-library script to launch the existing Commandlet, forward parameters and logs, consume schema 1 reports, and print a summary. Python does not discover assets, execute rules, mutate assets, or build UE automatically. V3.2 delegates build and test ordering to a separate CI script.
 
 UE exits 0 / 1 gate reading the current report; exit 2 does not consume a possible old report. Script argument, launch, abnormal-exit, and report-consumption errors return 2. Compare report modification time / size before and after invocation to reject unchanged reports without deleting old files. Read UTF-8 / UTF-16 BOM and check summary / exit-code consistency without duplicating rules. Use a shared report path only for sequential runs. See `PROJECT_STATE.md` for CLI and acceptance contracts.
 
@@ -920,7 +920,7 @@ UE exits 0 / 1 gate reading the current report; exit 2 does not consume a possib
 
 GitHub Actions only checks out code, calls the same local PowerShell CI script, and archives artifacts. The script owns build / test ordering, expected exits, report presence, and summary contract checks; rules / discovery remain in C++. The default fixture deliberately includes a rule FAIL and is a smoke test expecting exit 1; Characters expects exit 0. Infrastructure / execution errors must not be accepted as expected rule failures.
 
-The first version uses workflow_dispatch only, a Windows self-hosted runner, and installed UE 5.8.2 without engine downloads. Isolated GUID artifact directories avoid stale reports, and asset hashes are checked before / after the full chain. GitHub remote acceptance remains pending; local success does not replace remote evidence.
+The first version uses workflow_dispatch only, a Windows self-hosted runner, and installed UE 5.8.2 without engine downloads. Isolated GUID artifact directories avoid stale reports, and asset hashes are checked before / after the full chain. See `PROJECT_STATE.md` for acceptance status and evidence sources; local execution evidence and user-confirmed remote manual acceptance are recorded separately.
 
 ---
 
@@ -1045,7 +1045,7 @@ Prefer:
 
 ## 8. Module Boundary
 
-V3.0-A corrects the module type in `ProductionPipelineToolkit.uplugin` to `Editor`, matching dependencies such as `UnrealEd`. The Runner can serve a future UE Editor Commandlet, but is currently not game Runtime code.
+V3.0-A corrects the module type in `ProductionPipelineToolkit.uplugin` to `Editor`, matching dependencies such as `UnrealEd`. The Runner is reused by the UE Editor Commandlet, but is currently not game Runtime code.
 
 The project is currently an Editor tool.
 
